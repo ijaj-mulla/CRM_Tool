@@ -92,7 +92,7 @@ const menuItems = [
       {
         name: "Appointments",
         icon: CalendarCheck,
-        path: "/activities/appointments"
+            path: "/activities/appointments"
       },
       {
         name: "E-Mails",
@@ -165,7 +165,7 @@ const CRMSidebar = ({ isOpen, onToggle }) => {
       {/* Sidebar */}
       <div className={cn(
         "fixed top-0 left-0 h-full bg-sidebar-bg border-r border-sidebar-border z-50 transition-transform duration-300 ease-in-out",
-        "lg:relative lg:translate-x-0",
+        "lg:translate-x-0",
         isOpen ? "translate-x-0" : "-translate-x-full",
         "w-64 shadow-medium"
       )}>

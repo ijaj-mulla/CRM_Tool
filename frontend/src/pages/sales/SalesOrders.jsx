@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { CRMToolbar } from "@/components/layout/CRMToolbar";
 import { FormCard } from "@/components/forms/FormCard";
 import { FormSection } from "@/components/forms/FormSection";
 import { Input } from "@/components/ui/input";
@@ -12,6 +11,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Search, ChevronLeft, ChevronRight, Calendar, MapPin } from "lucide-react";
+import { Dialog as ShadDialog, DialogContent as ShadDialogContent, DialogHeader as ShadDialogHeader, DialogTitle as ShadDialogTitle } from "@/components/ui/dialog";
+import { Select as ShadSelect, SelectContent as ShadSelectContent, SelectItem as ShadSelectItem, SelectTrigger as ShadSelectTrigger, SelectValue as ShadSelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const SalesOrders = () => {
   const [showForm, setShowForm] = useState(false);
@@ -39,9 +41,52 @@ const SalesOrders = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  const [showSortDialog, setShowSortDialog] = useState(false);
+  const [showColumnsDialog, setShowColumnsDialog] = useState(false);
+
+  const allColumns = [
+    { key: 'document_type', label: 'Document Type' },
+    { key: 'account', label: 'Account' },
+    { key: 'ship_in', label: 'Ship-To' },
+    { key: 'external_ref', label: 'External Ref' },
+    { key: 'description', label: 'Description' },
+    { key: 'pricing_date', label: 'Pricing Date' },
+    { key: 'requsted_date', label: 'Requested Date' },
+    { key: 'owner', label: 'Owner' },
+    { key: 'sales_unit', label: 'Sales Unit' },
+    { key: 'sales_organisation', label: 'Sales Org' },
+    { key: 'distribution_Channel', label: 'Distribution' },
+    { key: 'terrritory', label: 'Territory' },
+    { key: 'status', label: 'Status' },
+    { key: 'amount', label: 'Amount' },
+  ];
+  const storageKey = 'orders.visibleColumns';
+  const [visibleColumns, setVisibleColumns] = useState(() => {
+    const saved = localStorage.getItem(storageKey);
+    if (saved) return JSON.parse(saved);
+    const init = {}; allColumns.forEach(c => init[c.key] = true); return init;
+  });
+  const isVisible = (k) => visibleColumns[k] !== false;
+
   useEffect(() => {
     fetchOrders();
   }, []);
+
+  useEffect(() => {
+    const handler = (e) => {
+      const a = e?.detail?.action;
+      if (a === 'refresh') fetchOrders();
+      else if (a === 'add-new') setShowForm(true);
+      else if (a === 'sort') setShowSortDialog(true);
+      else if (a === 'manage-columns') setShowColumnsDialog(true);
+    };
+    window.addEventListener('crm-toolbar-action', handler);
+    return () => window.removeEventListener('crm-toolbar-action', handler);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(storageKey, JSON.stringify(visibleColumns));
+  }, [visibleColumns]);
 
   const fetchOrders = async () => {
     try {
@@ -104,6 +149,12 @@ const SalesOrders = () => {
     }
   };
 
+  const applySortSelection = (field, direction) => {
+    setSortField(field);
+    setSortDirection(direction);
+    setShowSortDialog(false);
+  };
+
   const filteredOrders = orders.filter((order) =>
     Object.values(order).some((value) =>
       value?.toString().toLowerCase().includes(searchTerm.toLowerCase())
@@ -144,7 +195,6 @@ const SalesOrders = () => {
   if (showForm) {
     return (
       <div className="min-h-screen bg-background">
-        <CRMToolbar title="Sales Orders - New Order" onAction={handleToolbarAction} />
         <div className="p-6">
           <FormCard title="Sales Order Information">
             <form onSubmit={handleSubmit}>
@@ -336,12 +386,11 @@ const SalesOrders = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <CRMToolbar title="Sales Orders" onAction={handleToolbarAction} />
       <div className="p-6">
         <Card className="shadow-soft">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>Sales Orders ({sortedOrders.length})</CardTitle>
+              <CardTitle>My Sales Orders ({sortedOrders.length})</CardTitle>
               <div className="flex items-center space-x-2">
                 <div className="relative">
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -360,43 +409,47 @@ const SalesOrders = () => {
               <Table>
                 <TableHeader className="sticky top-0 bg-background">
                   <TableRow>
-                    <TableHead onClick={() => handleSort("document_type")}>Document Type</TableHead>
-                    <TableHead onClick={() => handleSort("account")}>Account</TableHead>
-                    <TableHead onClick={() => handleSort("ship_in")}>Ship-To</TableHead>
-                    <TableHead onClick={() => handleSort("external_ref")}>External Ref</TableHead>
-                    <TableHead onClick={() => handleSort("description")}>Description</TableHead>
-                    <TableHead onClick={() => handleSort("pricing_date")}>Pricing Date</TableHead>
-                    <TableHead onClick={() => handleSort("requsted_date")}>Requested Date</TableHead>
-                    <TableHead onClick={() => handleSort("owner")}>Owner</TableHead>
-                    <TableHead onClick={() => handleSort("sales_unit")}>Sales Unit</TableHead>
-                    <TableHead onClick={() => handleSort("sales_organisation")}>Sales Org</TableHead>
-                    <TableHead onClick={() => handleSort("distribution_Channel")}>Distribution</TableHead>
-                    <TableHead onClick={() => handleSort("terrritory")}>Territory</TableHead>
-                    <TableHead onClick={() => handleSort("status")}>Status</TableHead>
-                    <TableHead onClick={() => handleSort("amount")}>Amount</TableHead>
+                    {isVisible('document_type') && <TableHead onClick={() => handleSort('document_type')}>Document Type</TableHead>}
+                    {isVisible('account') && <TableHead onClick={() => handleSort('account')}>Account</TableHead>}
+                    {isVisible('ship_in') && <TableHead onClick={() => handleSort('ship_in')}>Ship-To</TableHead>}
+                    {isVisible('external_ref') && <TableHead onClick={() => handleSort('external_ref')}>External Ref</TableHead>}
+                    {isVisible('description') && <TableHead onClick={() => handleSort('description')}>Description</TableHead>}
+                    {isVisible('pricing_date') && <TableHead onClick={() => handleSort('pricing_date')}>Pricing Date</TableHead>}
+                    {isVisible('requsted_date') && <TableHead onClick={() => handleSort('requsted_date')}>Requested Date</TableHead>}
+                    {isVisible('owner') && <TableHead onClick={() => handleSort('owner')}>Owner</TableHead>}
+                    {isVisible('sales_unit') && <TableHead onClick={() => handleSort('sales_unit')}>Sales Unit</TableHead>}
+                    {isVisible('sales_organisation') && <TableHead onClick={() => handleSort('sales_organisation')}>Sales Org</TableHead>}
+                    {isVisible('distribution_Channel') && <TableHead onClick={() => handleSort('distribution_Channel')}>Distribution</TableHead>}
+                    {isVisible('terrritory') && <TableHead onClick={() => handleSort('terrritory')}>Territory</TableHead>}
+                    {isVisible('status') && <TableHead onClick={() => handleSort('status')}>Status</TableHead>}
+                    {isVisible('amount') && <TableHead onClick={() => handleSort('amount')}>Amount</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {paginatedOrders.map((order) => (
                     <TableRow key={order._id || order.id}>
-                      <TableCell>{order.document_type || ""}</TableCell>
-                      <TableCell>{order.account || ""}</TableCell>
-                      <TableCell>{order.ship_in || ""}</TableCell>
-                      <TableCell>{order.external_ref || ""}</TableCell>
-                      <TableCell>{order.description || ""}</TableCell>
-                      <TableCell>
-                        {order.pricing_date ? new Date(order.pricing_date).toLocaleDateString() : ""}
-                      </TableCell>
-                      <TableCell>
-                        {order.requsted_date ? new Date(order.requsted_date).toLocaleDateString() : ""}
-                      </TableCell>
-                      <TableCell>{order.owner || ""}</TableCell>
-                      <TableCell>{order.sales_unit || ""}</TableCell>
-                      <TableCell>{order.sales_organisation || ""}</TableCell>
-                      <TableCell>{order.distribution_Channel || ""}</TableCell>
-                      <TableCell>{order.terrritory || ""}</TableCell>
-                      <TableCell>{getStatusBadge(order.status)}</TableCell>
-                      <TableCell>{formatCurrency(order.amount)}</TableCell>
+                      {isVisible('document_type') && <TableCell>{order.document_type || ""}</TableCell>}
+                      {isVisible('account') && <TableCell>{order.account || ""}</TableCell>}
+                      {isVisible('ship_in') && <TableCell>{order.ship_in || ""}</TableCell>}
+                      {isVisible('external_ref') && <TableCell>{order.external_ref || ""}</TableCell>}
+                      {isVisible('description') && <TableCell>{order.description || ""}</TableCell>}
+                      {isVisible('pricing_date') && (
+                        <TableCell>
+                          {order.pricing_date ? new Date(order.pricing_date).toLocaleDateString() : ""}
+                        </TableCell>
+                      )}
+                      {isVisible('requsted_date') && (
+                        <TableCell>
+                          {order.requsted_date ? new Date(order.requsted_date).toLocaleDateString() : ""}
+                        </TableCell>
+                      )}
+                      {isVisible('owner') && <TableCell>{order.owner || ""}</TableCell>}
+                      {isVisible('sales_unit') && <TableCell>{order.sales_unit || ""}</TableCell>}
+                      {isVisible('sales_organisation') && <TableCell>{order.sales_organisation || ""}</TableCell>}
+                      {isVisible('distribution_Channel') && <TableCell>{order.distribution_Channel || ""}</TableCell>}
+                      {isVisible('terrritory') && <TableCell>{order.terrritory || ""}</TableCell>}
+                      {isVisible('status') && <TableCell>{getStatusBadge(order.status)}</TableCell>}
+                      {isVisible('amount') && <TableCell>{formatCurrency(order.amount)}</TableCell>}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -433,6 +486,66 @@ const SalesOrders = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Sort Dialog */}
+      <ShadDialog open={showSortDialog} onOpenChange={setShowSortDialog}>
+        <ShadDialogContent>
+          <ShadDialogHeader>
+            <ShadDialogTitle>Sort</ShadDialogTitle>
+          </ShadDialogHeader>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Field</Label>
+              <ShadSelect value={sortField} onValueChange={(v) => setSortField(v)}>
+                <ShadSelectTrigger><ShadSelectValue placeholder="Select field" /></ShadSelectTrigger>
+                <ShadSelectContent>
+                  {allColumns.map(c => (
+                    <ShadSelectItem key={c.key} value={c.key}>{c.label}</ShadSelectItem>
+                  ))}
+                </ShadSelectContent>
+              </ShadSelect>
+            </div>
+            <div className="space-y-2">
+              <Label>Direction</Label>
+              <ShadSelect value={sortDirection} onValueChange={(v) => setSortDirection(v)}>
+                <ShadSelectTrigger><ShadSelectValue placeholder="Select direction" /></ShadSelectTrigger>
+                <ShadSelectContent>
+                  <ShadSelectItem value="asc">Ascending</ShadSelectItem>
+                  <ShadSelectItem value="desc">Descending</ShadSelectItem>
+                </ShadSelectContent>
+              </ShadSelect>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" onClick={() => setShowSortDialog(false)}>Cancel</Button>
+            <Button onClick={() => applySortSelection(sortField || 'document_type', sortDirection || 'asc')}>Apply</Button>
+          </div>
+        </ShadDialogContent>
+      </ShadDialog>
+
+      {/* Manage Columns Dialog */}
+      <ShadDialog open={showColumnsDialog} onOpenChange={setShowColumnsDialog}>
+        <ShadDialogContent>
+          <ShadDialogHeader>
+            <ShadDialogTitle>Manage Columns</ShadDialogTitle>
+          </ShadDialogHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[50vh] overflow-auto pr-2">
+            {allColumns.map(col => (
+              <label key={col.key} className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={isVisible(col.key)}
+                  onCheckedChange={(val) => setVisibleColumns(prev => ({ ...prev, [col.key]: !!val }))}
+                />
+                {col.label}
+              </label>
+            ))}
+          </div>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" onClick={() => setShowColumnsDialog(false)}>Close</Button>
+            <Button onClick={() => { setShowColumnsDialog(false); }}>Save</Button>
+          </div>
+        </ShadDialogContent>
+      </ShadDialog>
     </div>
   );
 };

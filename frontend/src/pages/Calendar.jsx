@@ -1,7 +1,4 @@
-import React from "react";
-import {
-  CRMToolbar
-} from "@/components/layout/CRMToolbar";
+import React, { useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -12,8 +9,20 @@ import {
   Calendar as CalendarIcon
 } from "lucide-react";
 const Calendar = () => {
+  useEffect(() => {
+    const handler = (e) => {
+      const a = e?.detail?.action;
+      if (a === 'refresh') {
+        // Placeholder: no data to reload yet
+      } else if (a === 'add-new') {
+        // Placeholder: could open a future event form
+        // noop for now
+      }
+    };
+    window.addEventListener('crm-toolbar-action', handler);
+    return () => window.removeEventListener('crm-toolbar-action', handler);
+  }, []);
   return ( <div className="min-h-screen bg-background">
-  <CRMToolbar title="Personal Calendar" />
   <div className="p-6">
   <Card className="shadow-soft">
   <CardHeader>

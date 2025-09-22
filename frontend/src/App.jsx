@@ -27,7 +27,9 @@ import Leads from "./pages/sales/Leads";
 import Opportunities from "./pages/sales/Opportunities";
 import SalesQuotes from "./pages/sales/SalesQuotes";
 import SalesOrders from "./pages/sales/SalesOrders";
+import Appointments from "./pages/activities/Appointments";
 import NotFound from "./pages/NotFound";
+import Tasks from "./pages/activities/Tasks";
 const queryClient = new QueryClient();
 const App = () => ( <QueryClientProvider client={
   queryClient
@@ -58,6 +60,15 @@ const App = () => ( <QueryClientProvider client={
 } />
 <Route path="/sales/quotes" element={
   <SalesQuotes />
+} />
+<Route path="/sales/appointments" element={
+  <Appointments />
+} />
+<Route path="/activities/appointments" element={
+  <Appointments />
+} />
+<Route path="/activities/tasks" element={
+  <Tasks />
 } />
 <Route path="/sales/orders" element={
   <SalesOrders />

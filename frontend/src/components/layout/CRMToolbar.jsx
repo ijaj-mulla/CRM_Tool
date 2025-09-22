@@ -3,13 +3,13 @@ import {
   Button
 } from "@/components/ui/button";
 import {
-  Search,
   ArrowUpDown,
   PieChart,
   Filter,
   Plus,
   RotateCcw,
-  MoreHorizontal
+  MoreHorizontal,
+  Columns
 } from "lucide-react";
 import {
   Tooltip,
@@ -21,10 +21,6 @@ import {
   cn
 } from "@/lib/utils";
 const defaultActions = [ {
-  icon: Search,
-  label: "Search"
-},
-{
   icon: ArrowUpDown,
   label: "Sort"
 },
@@ -45,6 +41,10 @@ const defaultActions = [ {
   label: "Refresh"
 },
 {
+  icon: Columns,
+  label: "Manage Columns"
+},
+{
   icon: MoreHorizontal,
   label: "More Options"
 } ];
@@ -54,6 +54,12 @@ export const CRMToolbar = ({
   onAction,
   className
 }) => {
+  const emitGlobal = (actionKey) => {
+    try {
+      const event = new CustomEvent('crm-toolbar-action', { detail: { action: actionKey } });
+      window.dispatchEvent(event);
+    } catch (_) { /* noop */ }
+  };
   return (
     <div className={cn(
       "flex items-center justify-between p-4 bg-card border-b border-border",
@@ -77,8 +83,14 @@ export const CRMToolbar = ({
     } onClick={
       () => {
         action.onClick?.();
-        onAction?.(action.label.toLowerCase().replace(/\s+/g,
-        '-'));
+        const key = action.label.toLowerCase().replace(/\s+/g, '-');
+        // Normalize some keys to consistent identifiers
+        const normalized = key === 'add-new' ? 'add-new' :
+          key === 'manage-columns' ? 'manage-columns' :
+          key === 'refresh' ? 'refresh' :
+          key === 'sort' ? 'sort' : key;
+        onAction?.(normalized);
+        emitGlobal(normalized);
       }
     } >
     <action.icon className="w-4 h-4" />

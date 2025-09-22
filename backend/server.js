@@ -9,6 +9,8 @@ const leadRoutes = require('./routes/leadRoute');
 const opportunityRoutes = require('./routes/opportunityRoute');
 const quoteRoutes = require('./routes/quoteRoute');
 const orderRoutes = require('./routes/ordersRoute');
+const tasksRoutes = require('./routes/tasksRoute');
+const appointmentsRoutes = require('./routes/appointmentsRoute');
 
 const app = express();
 app.use(express.json());
@@ -39,6 +41,12 @@ app.use('/api/quotes',quoteRoutes );
 
 //orders Routes
 app.use('/api/orders',orderRoutes );
+
+//tasks Routes
+app.use('/api/tasks', tasksRoutes);
+
+//appointments Routes
+app.use('/api/appointments', appointmentsRoutes);
 
 const PORT = 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

@@ -139,3 +139,28 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* Scrollbar visibility utilities and global application */
+@layer utilities {
+  .hide-scrollbar {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE 10+ */
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none; /* Safari and Chrome */
+  }
+
+  .show-scrollbar {
+    scrollbar-width: auto; /* Firefox */
+    -ms-overflow-style: auto; /* IE 10+ */
+  }
+  .show-scrollbar::-webkit-scrollbar {
+    display: initial; /* Safari and Chrome */
+  }
+}
+
+@layer base {
+  html, body, #root, header, .sidebar, main, .content, .app {
+    @apply hide-scrollbar;
+  }
+}

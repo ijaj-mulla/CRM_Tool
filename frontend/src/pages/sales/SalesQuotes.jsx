@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { CRMToolbar } from "@/components/layout/CRMToolbar";
 import { FormCard } from "@/components/forms/FormCard";
 import { FormSection } from "@/components/forms/FormSection";
 import { Input } from "@/components/ui/input";
@@ -12,6 +11,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Search, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import { Dialog as ShadDialog, DialogContent as ShadDialogContent, DialogHeader as ShadDialogHeader, DialogTitle as ShadDialogTitle } from "@/components/ui/dialog";
+import { Select as ShadSelect, SelectContent as ShadSelectContent, SelectItem as ShadSelectItem, SelectTrigger as ShadSelectTrigger, SelectValue as ShadSelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const SalesQuotes = () => {
   const [showForm, setShowForm] = useState(false);
@@ -41,9 +43,53 @@ const SalesQuotes = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  const [showSortDialog, setShowSortDialog] = useState(false);
+  const [showColumnsDialog, setShowColumnsDialog] = useState(false);
+
+  const allColumns = [
+    { key: 'document_type', label: 'Document Type' },
+    { key: 'account', label: 'Account' },
+    { key: 'contact', label: 'Contact' },
+    { key: 'external_ref', label: 'External Ref' },
+    { key: 'description', label: 'Description' },
+    { key: 'date', label: 'Date' },
+    { key: 'payment_terms', label: 'Payment Terms' },
+    { key: 'incoterms', label: 'Incoterms' },
+    { key: 'chance_of_success', label: 'Chance of Success' },
+    { key: 'validTo', label: 'Valid To' },
+    { key: 'owner', label: 'Owner' },
+    { key: 'sales_unit', label: 'Sales Unit' },
+    { key: 'terrritory', label: 'Territory' },
+    { key: 'status', label: 'Status' },
+    { key: 'amount', label: 'Amount' },
+  ];
+  const storageKey = 'quotes.visibleColumns';
+  const [visibleColumns, setVisibleColumns] = useState(() => {
+    const saved = localStorage.getItem(storageKey);
+    if (saved) return JSON.parse(saved);
+    const init = {}; allColumns.forEach(c => init[c.key] = true); return init;
+  });
+  const isVisible = (k) => visibleColumns[k] !== false;
+
   useEffect(() => {
     fetchQuotes();
   }, []);
+
+  useEffect(() => {
+    const handler = (e) => {
+      const a = e?.detail?.action;
+      if (a === 'refresh') fetchQuotes();
+      else if (a === 'add-new') setShowForm(true);
+      else if (a === 'sort') setShowSortDialog(true);
+      else if (a === 'manage-columns') setShowColumnsDialog(true);
+    };
+    window.addEventListener('crm-toolbar-action', handler);
+    return () => window.removeEventListener('crm-toolbar-action', handler);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(storageKey, JSON.stringify(visibleColumns));
+  }, [visibleColumns]);
 
   const fetchQuotes = async () => {
     try {
@@ -86,7 +132,26 @@ const SalesQuotes = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post("http://localhost:5000/api/quotes", formData);
+      const payload = {
+        ...formData,
+        amount: formData.amount !== "" ? Number(formData.amount) : undefined,
+        financials: {
+          ...formData.financials,
+          chance_of_success:
+            formData.financials.chance_of_success !== "" && formData.financials.chance_of_success !== null
+              ? Number(formData.financials.chance_of_success)
+              : undefined,
+          validTo: formData.financials.validTo || undefined,
+        },
+      };
+
+      // Backend requires financials.validTo. Enforce minimal client-side validation
+      if (!payload.financials?.validTo) {
+        alert("Please select the 'Valid To' date.");
+        return;
+      }
+
+      await axios.post("http://localhost:5000/api/quotes", payload);
       setShowForm(false);
       setFormData({
         document_type: "",
@@ -109,7 +174,9 @@ const SalesQuotes = () => {
       });
       fetchQuotes();
     } catch (error) {
-      alert("Failed to create quote: " + (error.response?.data?.message || error.message));
+      const msg =
+        error.response?.data?.message || error.response?.data || error.message;
+      alert("Failed to create quote: " + msg);
     }
   };
 
@@ -120,6 +187,12 @@ const SalesQuotes = () => {
       setSortField(field);
       setSortDirection("asc");
     }
+  };
+
+  const applySortSelection = (field, direction) => {
+    setSortField(field);
+    setSortDirection(direction);
+    setShowSortDialog(false);
   };
 
   const filteredQuotes = quotes.filter(quote => 
@@ -172,7 +245,6 @@ const SalesQuotes = () => {
   if (showForm) {
     return (
       <div className="min-h-screen bg-background">
-        <CRMToolbar title="Sales Quotes - New Quote" onAction={handleToolbarAction} />
         <div className="p-6">
           <FormCard title="Sales Quote Information">
             <form onSubmit={handleSubmit}>
@@ -336,12 +408,11 @@ const SalesQuotes = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <CRMToolbar title="Sales Quotes" onAction={handleToolbarAction} />
       <div className="p-6">
         <Card className="shadow-soft">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>Sales Quotes ({sortedQuotes.length})</CardTitle>
+              <CardTitle>My Sales Quotes ({sortedQuotes.length})</CardTitle>
               <div className="flex items-center space-x-2">
                 <div className="relative">
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -360,71 +431,41 @@ const SalesQuotes = () => {
               <Table>
                 <TableHeader className="sticky top-0 bg-background">
                   <TableRow>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort('document_type')}>
-                      Document Type
-                    </TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort('account')}>
-                      Account
-                    </TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort('contact')}>
-                      Contact
-                    </TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort('external_ref')}>
-                      External Ref
-                    </TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort('description')}>
-                      Description
-                    </TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort('date')}>
-                      Date
-                    </TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort('payment_terms')}>
-                      Payment Terms
-                    </TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort('incoterms')}>
-                      Incoterms
-                    </TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort('chance_of_success')}>
-                      Chance of Success
-                    </TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort('validTo')}>
-                      Valid To
-                    </TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort('owner')}>
-                      Owner
-                    </TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort('sales_unit')}>
-                      Sales Unit
-                    </TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort('terrritory')}>
-                      Territory
-                    </TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort('status')}>
-                      Status
-                    </TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort('amount')}>
-                      Amount
-                    </TableHead>
+                    {isVisible('document_type') && <TableHead className="cursor-pointer" onClick={() => handleSort('document_type')}>Document Type</TableHead>}
+                    {isVisible('account') && <TableHead className="cursor-pointer" onClick={() => handleSort('account')}>Account</TableHead>}
+                    {isVisible('contact') && <TableHead className="cursor-pointer" onClick={() => handleSort('contact')}>Contact</TableHead>}
+                    {isVisible('external_ref') && <TableHead className="cursor-pointer" onClick={() => handleSort('external_ref')}>External Ref</TableHead>}
+                    {isVisible('description') && <TableHead className="cursor-pointer" onClick={() => handleSort('description')}>Description</TableHead>}
+                    {isVisible('date') && <TableHead className="cursor-pointer" onClick={() => handleSort('date')}>Date</TableHead>}
+                    {isVisible('payment_terms') && <TableHead className="cursor-pointer" onClick={() => handleSort('payment_terms')}>Payment Terms</TableHead>}
+                    {isVisible('incoterms') && <TableHead className="cursor-pointer" onClick={() => handleSort('incoterms')}>Incoterms</TableHead>}
+                    {isVisible('chance_of_success') && <TableHead className="cursor-pointer" onClick={() => handleSort('chance_of_success')}>Chance of Success</TableHead>}
+                    {isVisible('validTo') && <TableHead className="cursor-pointer" onClick={() => handleSort('validTo')}>Valid To</TableHead>}
+                    {isVisible('owner') && <TableHead className="cursor-pointer" onClick={() => handleSort('owner')}>Owner</TableHead>}
+                    {isVisible('sales_unit') && <TableHead className="cursor-pointer" onClick={() => handleSort('sales_unit')}>Sales Unit</TableHead>}
+                    {isVisible('terrritory') && <TableHead className="cursor-pointer" onClick={() => handleSort('terrritory')}>Territory</TableHead>}
+                    {isVisible('status') && <TableHead className="cursor-pointer" onClick={() => handleSort('status')}>Status</TableHead>}
+                    {isVisible('amount') && <TableHead className="cursor-pointer" onClick={() => handleSort('amount')}>Amount</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {paginatedQuotes.map((quote) => (
                     <TableRow key={quote._id || quote.id} className="cursor-pointer hover:bg-muted/50">
-                      <TableCell className="font-medium">{quote.document_type}</TableCell>
-                      <TableCell>{quote.account}</TableCell>
-                      <TableCell>{quote.contact}</TableCell>
-                      <TableCell>{quote.external_ref}</TableCell>
-                      <TableCell className="max-w-xs truncate">{quote.description}</TableCell>
-                      <TableCell>{quote.date ? new Date(quote.date).toLocaleDateString() : ""}</TableCell>
-                      <TableCell>{quote.financials?.payment_terms}</TableCell>
-                      <TableCell>{quote.financials?.incoterms}</TableCell>
-                      <TableCell>{getChanceBadge(quote.financials?.chance_of_success)}</TableCell>
-                      <TableCell>{quote.financials?.validTo ? new Date(quote.financials.validTo).toLocaleDateString() : ""}</TableCell>
-                      <TableCell>{quote.owner}</TableCell>
-                      <TableCell>{quote.sales_unit}</TableCell>
-                      <TableCell>{quote.terrritory}</TableCell>
-                      <TableCell>{getStatusBadge(quote.status)}</TableCell>
-                      <TableCell className="font-medium">{formatCurrency(quote.amount)}</TableCell>
+                      {isVisible('document_type') && <TableCell className="font-medium">{quote.document_type}</TableCell>}
+                      {isVisible('account') && <TableCell>{quote.account}</TableCell>}
+                      {isVisible('contact') && <TableCell>{quote.contact}</TableCell>}
+                      {isVisible('external_ref') && <TableCell>{quote.external_ref}</TableCell>}
+                      {isVisible('description') && <TableCell className="max-w-xs truncate">{quote.description}</TableCell>}
+                      {isVisible('date') && <TableCell>{quote.date ? new Date(quote.date).toLocaleDateString() : ""}</TableCell>}
+                      {isVisible('payment_terms') && <TableCell>{quote.financials?.payment_terms}</TableCell>}
+                      {isVisible('incoterms') && <TableCell>{quote.financials?.incoterms}</TableCell>}
+                      {isVisible('chance_of_success') && <TableCell>{getChanceBadge(quote.financials?.chance_of_success)}</TableCell>}
+                      {isVisible('validTo') && <TableCell>{quote.financials?.validTo ? new Date(quote.financials.validTo).toLocaleDateString() : ""}</TableCell>}
+                      {isVisible('owner') && <TableCell>{quote.owner}</TableCell>}
+                      {isVisible('sales_unit') && <TableCell>{quote.sales_unit}</TableCell>}
+                      {isVisible('terrritory') && <TableCell>{quote.terrritory}</TableCell>}
+                      {isVisible('status') && <TableCell>{getStatusBadge(quote.status)}</TableCell>}
+                      {isVisible('amount') && <TableCell className="font-medium">{formatCurrency(quote.amount)}</TableCell>}
                     </TableRow>
                   ))}
                 </TableBody>

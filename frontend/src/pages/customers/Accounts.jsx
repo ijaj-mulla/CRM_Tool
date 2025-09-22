@@ -11,6 +11,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select as ShadSelect, SelectContent as ShadSelectContent, SelectItem as ShadSelectItem, SelectTrigger as ShadSelectTrigger, SelectValue as ShadSelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const Accounts = () => {
   const [showForm, setShowForm] = useState(false);
@@ -45,10 +48,76 @@ const Accounts = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  // Toolbar-driven UI state
+  const [showSortDialog, setShowSortDialog] = useState(false);
+  const [showColumnsDialog, setShowColumnsDialog] = useState(false);
+
+  // Manage columns (persist per page)
+  const allColumns = [
+    { key: "accountId", label: "Account ID" },
+    { key: "accountType", label: "Type" },
+    { key: "accountName", label: "Account Name" },
+    { key: "prospectRole", label: "Prospect Role" },
+    { key: "website", label: "Website" },
+    { key: "status", label: "Status" },
+    { key: "salesOrganization", label: "Sales Org" },
+    { key: "buAssignment", label: "BU Assignment" },
+    { key: "industryHorizontal", label: "Industry Horizontal" },
+    { key: "vertical", label: "Vertical" },
+    { key: "subVertical", label: "Sub Vertical" },
+    { key: "country", label: "Country" },
+    { key: "postalCode", label: "Postal Code" },
+    { key: "city", label: "City" },
+    { key: "state", label: "State" },
+    { key: "district", label: "District" },
+    { key: "street", label: "Street" },
+    { key: "territory", label: "Territory" },
+    { key: "owner", label: "Owner" },
+    { key: "taxCountry", label: "Tax Country" },
+    { key: "taxNumberType", label: "Tax Number Type" },
+    { key: "taxNumber", label: "Tax Number" },
+  ];
+  const storageKey = "accounts.visibleColumns";
+  const [visibleColumns, setVisibleColumns] = useState(() => {
+    const saved = localStorage.getItem(storageKey);
+    if (saved) return JSON.parse(saved);
+    const initial = {};
+    allColumns.forEach(c => { initial[c.key] = true; });
+    return initial;
+  });
+  const isVisible = (key) => visibleColumns[key] !== false;
+
   // Fetch accounts from backend
   useEffect(() => {
     fetchAccounts();
   }, []);
+
+  // Listen to global toolbar actions
+  useEffect(() => {
+    const handler = (e) => {
+      const action = e?.detail?.action;
+      if (action === "refresh") {
+        fetchAccounts();
+      } else if (action === "add-new") {
+        setShowForm(true);
+      } else if (action === "sort") {
+        setShowSortDialog(true);
+      } else if (action === "manage-columns") {
+        setShowColumnsDialog(true);
+      }
+    };
+    window.addEventListener("crm-toolbar-action", handler);
+    document.addEventListener("crm-toolbar-action", handler);
+    return () => {
+      window.removeEventListener("crm-toolbar-action", handler);
+      document.removeEventListener("crm-toolbar-action", handler);
+    };
+  }, []);
+
+  // Persist column visibility
+  useEffect(() => {
+    localStorage.setItem(storageKey, JSON.stringify(visibleColumns));
+  }, [visibleColumns]);
 
   const fetchAccounts = async () => {
     try {
@@ -116,6 +185,12 @@ const Accounts = () => {
     }
   };
 
+  const applySortSelection = (field, direction) => {
+    setSortField(field);
+    setSortDirection(direction);
+    setShowSortDialog(false);
+  };
+
   const filteredAccounts = accounts.filter(account =>
     Object.values(account).some(value =>
       value?.toString().toLowerCase().includes(searchTerm.toLowerCase())
@@ -144,7 +219,6 @@ const Accounts = () => {
 if (showForm) {
   return (
     <div className="min-h-screen bg-background">
-      <CRMToolbar title="Accounts - New Account" onAction={handleToolbarAction} />
       <div className="p-6">
         <FormCard title="Account Information">
           <form onSubmit={handleSubmit}>
@@ -341,12 +415,11 @@ if (showForm) {
 
   return (
     <div className="min-h-screen bg-background">
-      <CRMToolbar title="Accounts" onAction={handleToolbarAction} />
       <div className="p-6">
         <Card className="shadow-soft">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>Accounts ({sortedAccounts.length})</CardTitle>
+              <CardTitle>My Accounts ({sortedAccounts.length})</CardTitle>
               <div className="flex items-center space-x-2">
                 <div className="relative">
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -360,55 +433,55 @@ if (showForm) {
               <Table>
                 <TableHeader className="sticky top-0 bg-background">
                   <TableRow>
-                    <TableHead onClick={() => handleSort("accountId")}>Account ID</TableHead>
-                    <TableHead onClick={() => handleSort("accountType")}>Type</TableHead>
-                    <TableHead onClick={() => handleSort("accountName")}>Account Name</TableHead>
-                    <TableHead onClick={() => handleSort("prospectRole")}>Prospect Role</TableHead>
-                    <TableHead onClick={() => handleSort("website")}>Website</TableHead>
-                    <TableHead onClick={() => handleSort("status")}>Status</TableHead>
-                    <TableHead onClick={() => handleSort("salesOrganization")}>Sales Org</TableHead>
-                    <TableHead onClick={() => handleSort("buAssignment")}>BU Assignment</TableHead>
-                    <TableHead onClick={() => handleSort("industryHorizontal")}>Industry Horizontal</TableHead>
-                    <TableHead onClick={() => handleSort("vertical")}>Vertical</TableHead>
-                    <TableHead onClick={() => handleSort("subVertical")}>Sub Vertical</TableHead>
-                    <TableHead onClick={() => handleSort("country")}>Country</TableHead>
-                    <TableHead onClick={() => handleSort("postalCode")}>Postal Code</TableHead>
-                    <TableHead onClick={() => handleSort("city")}>City</TableHead>
-                    <TableHead onClick={() => handleSort("state")}>State</TableHead>
-                    <TableHead onClick={() => handleSort("district")}>District</TableHead>
-                    <TableHead onClick={() => handleSort("street")}>Street</TableHead>
-                    <TableHead onClick={() => handleSort("territory")}>Territory</TableHead>
-                    <TableHead onClick={() => handleSort("owner")}>Owner</TableHead>
-                    <TableHead onClick={() => handleSort("taxCountry")}>Tax Country</TableHead>
-                    <TableHead onClick={() => handleSort("taxNumberType")}>Tax Number Type</TableHead>
-                    <TableHead onClick={() => handleSort("taxNumber")}>Tax Number</TableHead>
+                    {isVisible("accountId") && <TableHead onClick={() => handleSort("accountId")}>Account ID</TableHead>}
+                    {isVisible("accountType") && <TableHead onClick={() => handleSort("accountType")}>Type</TableHead>}
+                    {isVisible("accountName") && <TableHead onClick={() => handleSort("accountName")}>Account Name</TableHead>}
+                    {isVisible("prospectRole") && <TableHead onClick={() => handleSort("prospectRole")}>Prospect Role</TableHead>}
+                    {isVisible("website") && <TableHead onClick={() => handleSort("website")}>Website</TableHead>}
+                    {isVisible("status") && <TableHead onClick={() => handleSort("status")}>Status</TableHead>}
+                    {isVisible("salesOrganization") && <TableHead onClick={() => handleSort("salesOrganization")}>Sales Org</TableHead>}
+                    {isVisible("buAssignment") && <TableHead onClick={() => handleSort("buAssignment")}>BU Assignment</TableHead>}
+                    {isVisible("industryHorizontal") && <TableHead onClick={() => handleSort("industryHorizontal")}>Industry Horizontal</TableHead>}
+                    {isVisible("vertical") && <TableHead onClick={() => handleSort("vertical")}>Vertical</TableHead>}
+                    {isVisible("subVertical") && <TableHead onClick={() => handleSort("subVertical")}>Sub Vertical</TableHead>}
+                    {isVisible("country") && <TableHead onClick={() => handleSort("country")}>Country</TableHead>}
+                    {isVisible("postalCode") && <TableHead onClick={() => handleSort("postalCode")}>Postal Code</TableHead>}
+                    {isVisible("city") && <TableHead onClick={() => handleSort("city")}>City</TableHead>}
+                    {isVisible("state") && <TableHead onClick={() => handleSort("state")}>State</TableHead>}
+                    {isVisible("district") && <TableHead onClick={() => handleSort("district")}>District</TableHead>}
+                    {isVisible("street") && <TableHead onClick={() => handleSort("street")}>Street</TableHead>}
+                    {isVisible("territory") && <TableHead onClick={() => handleSort("territory")}>Territory</TableHead>}
+                    {isVisible("owner") && <TableHead onClick={() => handleSort("owner")}>Owner</TableHead>}
+                    {isVisible("taxCountry") && <TableHead onClick={() => handleSort("taxCountry")}>Tax Country</TableHead>}
+                    {isVisible("taxNumberType") && <TableHead onClick={() => handleSort("taxNumberType")}>Tax Number Type</TableHead>}
+                    {isVisible("taxNumber") && <TableHead onClick={() => handleSort("taxNumber")}>Tax Number</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {paginatedAccounts.map((account) => (
                     <TableRow key={account._id} className="cursor-pointer hover:bg-muted/50">
-                       <TableCell>{account.accountId}</TableCell>
-                        <TableCell>{account.accountType}</TableCell>
-                        <TableCell>{account.accountName}</TableCell>
-                        <TableCell>{account.prospectRole}</TableCell>
-                        <TableCell>{account.website}</TableCell>
-                        <TableCell>{getStatusBadge(account.status)}</TableCell>
-                        <TableCell>{account.salesOrganization}</TableCell>
-                        <TableCell>{account.buAssignment}</TableCell>
-                        <TableCell>{account.industryHorizontal}</TableCell>
-                        <TableCell>{account.vertical}</TableCell>
-                        <TableCell>{account.subVertical}</TableCell>
-                        <TableCell>{account.country}</TableCell>
-                        <TableCell>{account.postalCode}</TableCell>
-                        <TableCell>{account.city}</TableCell>
-                        <TableCell>{account.state}</TableCell>
-                        <TableCell>{account.district}</TableCell>
-                        <TableCell>{account.street}</TableCell>
-                        <TableCell>{account.territory}</TableCell>
-                        <TableCell>{account.owner}</TableCell>
-                        <TableCell>{account.taxCountry}</TableCell>
-                        <TableCell>{account.taxNumberType}</TableCell>
-                        <TableCell>{account.taxNumber}</TableCell>
+                        {isVisible("accountId") && <TableCell>{account.accountId}</TableCell>}
+                        {isVisible("accountType") && <TableCell>{account.accountType}</TableCell>}
+                        {isVisible("accountName") && <TableCell>{account.accountName}</TableCell>}
+                        {isVisible("prospectRole") && <TableCell>{account.prospectRole}</TableCell>}
+                        {isVisible("website") && <TableCell>{account.website}</TableCell>}
+                        {isVisible("status") && <TableCell>{getStatusBadge(account.status)}</TableCell>}
+                        {isVisible("salesOrganization") && <TableCell>{account.salesOrganization}</TableCell>}
+                        {isVisible("buAssignment") && <TableCell>{account.buAssignment}</TableCell>}
+                        {isVisible("industryHorizontal") && <TableCell>{account.industryHorizontal}</TableCell>}
+                        {isVisible("vertical") && <TableCell>{account.vertical}</TableCell>}
+                        {isVisible("subVertical") && <TableCell>{account.subVertical}</TableCell>}
+                        {isVisible("country") && <TableCell>{account.country}</TableCell>}
+                        {isVisible("postalCode") && <TableCell>{account.postalCode}</TableCell>}
+                        {isVisible("city") && <TableCell>{account.city}</TableCell>}
+                        {isVisible("state") && <TableCell>{account.state}</TableCell>}
+                        {isVisible("district") && <TableCell>{account.district}</TableCell>}
+                        {isVisible("street") && <TableCell>{account.street}</TableCell>}
+                        {isVisible("territory") && <TableCell>{account.territory}</TableCell>}
+                        {isVisible("owner") && <TableCell>{account.owner}</TableCell>}
+                        {isVisible("taxCountry") && <TableCell>{account.taxCountry}</TableCell>}
+                        {isVisible("taxNumberType") && <TableCell>{account.taxNumberType}</TableCell>}
+                        {isVisible("taxNumber") && <TableCell>{account.taxNumber}</TableCell>}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -432,6 +505,66 @@ if (showForm) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Sort Dialog */}
+      <Dialog open={showSortDialog} onOpenChange={setShowSortDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sort</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Field</Label>
+              <ShadSelect value={sortField} onValueChange={(v) => setSortField(v)}>
+                <ShadSelectTrigger><ShadSelectValue placeholder="Select field" /></ShadSelectTrigger>
+                <ShadSelectContent>
+                  {allColumns.map(c => (
+                    <ShadSelectItem key={c.key} value={c.key}>{c.label}</ShadSelectItem>
+                  ))}
+                </ShadSelectContent>
+              </ShadSelect>
+            </div>
+            <div className="space-y-2">
+              <Label>Direction</Label>
+              <ShadSelect value={sortDirection} onValueChange={(v) => setSortDirection(v)}>
+                <ShadSelectTrigger><ShadSelectValue placeholder="Select direction" /></ShadSelectTrigger>
+                <ShadSelectContent>
+                  <ShadSelectItem value="asc">Ascending</ShadSelectItem>
+                  <ShadSelectItem value="desc">Descending</ShadSelectItem>
+                </ShadSelectContent>
+              </ShadSelect>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" onClick={() => setShowSortDialog(false)}>Cancel</Button>
+            <Button onClick={() => applySortSelection(sortField || "accountId", sortDirection || "asc")}>Apply</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage Columns Dialog */}
+      <Dialog open={showColumnsDialog} onOpenChange={setShowColumnsDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Manage Columns</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[50vh] overflow-auto pr-2">
+            {allColumns.map(col => (
+              <label key={col.key} className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={isVisible(col.key)}
+                  onCheckedChange={(val) => setVisibleColumns(prev => ({ ...prev, [col.key]: !!val }))}
+                />
+                {col.label}
+              </label>
+            ))}
+          </div>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" onClick={() => setShowColumnsDialog(false)}>Close</Button>
+            <Button onClick={() => { setShowColumnsDialog(false); }}>Save</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
