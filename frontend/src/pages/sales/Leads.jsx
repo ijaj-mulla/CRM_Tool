@@ -9,40 +9,38 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import ResizableTable from "@/components/table/ResizableTable";
 import { Badge } from "@/components/ui/badge";
-import { Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select as ShadSelect, SelectContent as ShadSelectContent, SelectItem as ShadSelectItem, SelectTrigger as ShadSelectTrigger, SelectValue as ShadSelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { showNotification } from "@/utils/notifications";
 
 const Leads = () => {
   const [showForm, setShowForm] = useState(false);
   const [leads, setLeads] = useState([]);
   const [formData, setFormData] = useState({
     name: "",
-    companyName: "",
-    contactName: "",
-    status: "In process",
-    qualificationLevel: "Cold",
-    source: "Website",
-    category: "Retail",
-    priority: "Medium",
-    campaign: "",
-    owner: "",
-    follow_up_activity: "",
-    accountInfo: {
-      city: "",
-      state: "",
-      country: "",
-      postalCode: "",
-      language: ""
-    },
-    contactInfo: {
-      phone: "",
-      mobile: "",
-      email: ""
-    },
-    notes: ""
+    status: "open",
+    contact: "",
+    account: "",
+    address: "",
+    city: "",
+    state: "",
+    country: "",
+    postalCode: "",
+    email: "",
+    department: "",
+    owner: "user1",
+    mobile: "",
+    qualificationLevel: "cold",
+    source: "email",
+    priority: "normal",
+    startDate: new Date().toISOString().slice(0,10),
+    endDate: "",
+    category: "demo category",
+    followUpActivity: "visit"
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState("");
@@ -54,21 +52,19 @@ const Leads = () => {
   const [showColumnsDialog, setShowColumnsDialog] = useState(false);
 
   const allColumns = [
+    { key: 'leadId', label: 'Lead ID' },
     { key: 'name', label: 'Name' },
-    { key: 'companyName', label: 'Company' },
-    { key: 'contactName', label: 'Contact Name' },
     { key: 'status', label: 'Status' },
+    { key: 'contact', label: 'Contact' },
+    { key: 'account', label: 'Account' },
+    { key: 'owner', label: 'Owner' },
     { key: 'qualificationLevel', label: 'Qualification' },
     { key: 'source', label: 'Source' },
-    { key: 'category', label: 'Category' },
     { key: 'priority', label: 'Priority' },
-    { key: 'campaign', label: 'Campaign' },
-    { key: 'owner', label: 'Owner' },
-    { key: 'follow_up_activity', label: 'Follow-up' },
-    { key: 'city', label: 'City' },
-    { key: 'state', label: 'State' },
-    { key: 'phone', label: 'Phone' },
-    { key: 'email', label: 'Email' },
+    { key: 'startDate', label: 'Start Date' },
+    { key: 'endDate', label: 'End Date' },
+    { key: 'category', label: 'Category' },
+    { key: 'followUpActivity', label: 'Follow-Up Activity' }
   ];
   const storageKey = 'leads.visibleColumns';
   const [visibleColumns, setVisibleColumns] = useState(() => {
@@ -115,56 +111,144 @@ const Leads = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    if (name in formData.accountInfo) {
-      setFormData({
-        ...formData,
-        accountInfo: { ...formData.accountInfo, [name]: value }
-      });
-    } else if (name in formData.contactInfo) {
-      setFormData({
-        ...formData,
-        contactInfo: { ...formData.contactInfo, [name]: value }
-      });
-    } else {
-      setFormData({ ...formData, [name]: value });
-    }
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSelectChange = (name, value) => {
     setFormData({ ...formData, [name]: value });
   };
 
+  // Live search states and handlers
+  const [contactQuery, setContactQuery] = useState("");
+  const [contactResults, setContactResults] = useState([]);
+  const [showContactList, setShowContactList] = useState(false);
+
+  const [accountQuery, setAccountQuery] = useState("");
+  const [accountResults, setAccountResults] = useState([]);
+  const [showAccountList, setShowAccountList] = useState(false);
+  const [saveToMaster, setSaveToMaster] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(async () => {
+      if (!contactQuery) { setContactResults([]); return; }
+      try {
+        const url = `http://localhost:5000/api/leads/search/contact?q=${encodeURIComponent(contactQuery)}${accountQuery ? `&account=${encodeURIComponent(accountQuery)}` : ''}`;
+        const res = await axios.get(url);
+        setContactResults(res.data || []);
+      } catch {}
+    }, 300);
+    return () => clearTimeout(t);
+  }, [contactQuery, accountQuery]);
+
+  useEffect(() => {
+    const t = setTimeout(async () => {
+      if (!accountQuery) { setAccountResults([]); return; }
+      try {
+        const res = await axios.get(`http://localhost:5000/api/leads/search/account?q=${encodeURIComponent(accountQuery)}`);
+        setAccountResults(res.data || []);
+      } catch {}
+    }, 300);
+    return () => clearTimeout(t);
+  }, [accountQuery]);
+
+  const selectContact = (c) => {
+    setFormData(prev => ({
+      ...prev,
+      contact: c.name || "",
+      email: c.email || prev.email,
+      mobile: c.mobile || prev.mobile,
+      department: c.department || prev.department,
+      address: c.address || prev.address,
+      city: c.city || prev.city,
+      state: c.state || prev.state,
+      country: c.country || prev.country,
+      account: c.accountName || prev.account,
+    }));
+    setContactQuery(c.name || "");
+    if (c.accountName) setAccountQuery(c.accountName);
+    setShowContactList(false);
+  };
+
+  const selectAccount = (a) => {
+    setFormData(prev => ({
+      ...prev,
+      account: a.name || "",
+      address: a.address || prev.address,
+      city: a.city || prev.city,
+      state: a.state || prev.state,
+      country: a.country || prev.country,
+      postalCode: a.postalCode || prev.postalCode,
+      contact: a.mainContact || prev.contact,
+      email: a.email || prev.email,
+      mobile: a.mobile || prev.mobile,
+    }));
+    setAccountQuery(a.name || "");
+    if (a.mainContact) setContactQuery(a.mainContact);
+    setShowAccountList(false);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      if (saveToMaster) {
+        // Create only Account (Contact creation skipped by design)
+        const requiredMissing = !formData.account || !formData.contact || !formData.email;
+        const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email || "");
+        const mobileValid = !formData.mobile || /^\d{10}$/.test(formData.mobile);
+
+        if (requiredMissing) {
+          alert("To create an Account from lead, please provide: Account, Contact and Email.");
+        } else if (!emailValid) {
+          alert("Please enter a valid email to create the Account.");
+        } else if (!mobileValid) {
+          alert("Mobile must be exactly 10 digits if provided.");
+        } else {
+          const accountPayloadRaw = {
+            name: formData.account,
+            city: formData.city,
+            state: formData.state,
+            country: formData.country,
+            mainContact: formData.contact,
+            mobile: formData.mobile,
+            email: formData.email,
+            status: 'Active'
+          };
+          const accountPayload = Object.fromEntries(
+            Object.entries(accountPayloadRaw).filter(([_, v]) => v !== "" && v !== undefined)
+          );
+          try {
+            await axios.post("http://localhost:5000/api/accounts", accountPayload);
+          } catch (accErr) {
+            const msg = accErr.response?.data?.message || accErr.response?.data?.error || accErr.message;
+            alert("Failed to create account: " + msg);
+          }
+        }
+      }
       await axios.post("http://localhost:5000/api/leads", formData);
       setShowForm(false);
       setFormData({
         name: "",
-        companyName: "",
-        contactName: "",
-        status: "In process",
-        qualificationLevel: "Cold",
-        source: "Website",
-        category: "Retail",
-        priority: "Medium",
-        campaign: "",
-        owner: "",
-        follow_up_activity: "",
-        accountInfo: {
-          city: "",
-          state: "",
-          country: "",
-          postalCode: "",
-          language: ""
-        },
-        contactInfo: {
-          phone: "",
-          mobile: "",
-          email: ""
-        },
-        notes: ""
+        status: "open",
+        contact: "",
+        account: "",
+        address: "",
+        city: "",
+        state: "",
+        country: "",
+        postalCode: "",
+        email: "",
+        department: "",
+        owner: "user1",
+        mobile: "",
+        qualificationLevel: "cold",
+        source: "email",
+        priority: "normal",
+        startDate: new Date().toISOString().slice(0,10),
+        endDate: "",
+        category: "demo category",
+        followUpActivity: "visit"
       });
+      setSaveToMaster(false);
       fetchLeads();
     } catch (error) {
       alert("Failed to create lead: " + (error.response?.data?.message || error.message));
@@ -204,17 +288,160 @@ const Leads = () => {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedLeads = sortedLeads.slice(startIndex, startIndex + itemsPerPage);
 
+  // Columns config for ResizableTable
+  const columnsConfig = [
+    { key: 'leadId', label: 'Lead ID', defaultWidth: 100 },
+    { key: 'name', label: 'Name', defaultWidth: 150 },
+    { key: 'status', label: 'Status', defaultWidth: 120 },
+    { key: 'contact', label: 'Contact', defaultWidth: 150 },
+    { key: 'account', label: 'Account', defaultWidth: 150 },
+    { key: 'owner', label: 'Owner', defaultWidth: 100 },
+    { key: 'qualificationLevel', label: 'Qualification', defaultWidth: 130 },
+    { key: 'source', label: 'Source', defaultWidth: 150 },
+    { key: 'priority', label: 'Priority', defaultWidth: 100 },
+    { key: 'startDate', label: 'Start Date', defaultWidth: 120 },
+    { key: 'endDate', label: 'End Date', defaultWidth: 120 },
+    { key: 'category', label: 'Category', defaultWidth: 150 },
+    { key: 'followUpActivity', label: 'Follow-Up Activity', defaultWidth: 150 },
+  ];
+
+  const renderCell = (row, key) => {
+    if (key === 'name') {
+      return editingId === (row._id || row.id) ? (
+        <Input value={editData.name} onChange={(e) => updateEdit('name', e.target.value)} />
+      ) : (
+        row.name
+      );
+    }
+    if (key === 'status') {
+      return editingId === (row._id || row.id) ? (
+        <Select value={editData.status} onValueChange={(v) => updateEdit('status', v)}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="open">Open</SelectItem>
+            <SelectItem value="in process">In Process</SelectItem>
+            <SelectItem value="qualified">Qualified</SelectItem>
+          </SelectContent>
+        </Select>
+      ) : (
+        getStatusBadge(row.status)
+      );
+    }
+    if (key === 'category') {
+      return editingId === (row._id || row.id) ? (
+        <Select value={editData.category} onValueChange={(v) => updateEdit('category', v)}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Brochure request">Brochure request</SelectItem>
+            <SelectItem value="Prospect for Consulting">Prospect for Consulting</SelectItem>
+            <SelectItem value="Prospect for Product Sales">Prospect for Product Sales</SelectItem>
+            <SelectItem value="Prospect for Service">Prospect for Service</SelectItem>
+            <SelectItem value="Prospect for Training">Prospect for Training</SelectItem>
+            <SelectItem value="Value Chain">Value Chain</SelectItem>
+          </SelectContent>
+        </Select>
+      ) : (
+        row.category
+      );
+    }
+    if (key === 'priority') return getPriorityBadge(row.priority);
+    if (key === 'qualificationLevel') return getQualificationBadge(row.qualificationLevel);
+    if (key === 'startDate') {
+      return editingId === (row._id || row.id) ? (
+        <Input type="date" value={editData.startDate} onChange={(e) => updateEdit('startDate', e.target.value)} />
+      ) : (
+        fmtDate(row.startDate)
+      );
+    }
+    if (key === 'endDate') {
+      return editingId === (row._id || row.id) ? (
+        <Input type="date" value={editData.endDate} onChange={(e) => updateEdit('endDate', e.target.value)} />
+      ) : (
+        fmtDate(row.endDate)
+      );
+    }
+    if (key === 'followUpActivity') {
+      return editingId === (row._id || row.id) ? (
+        <Select value={editData.followUpActivity} onValueChange={(v) => updateEdit('followUpActivity', v)}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="visit">Visit</SelectItem>
+            <SelectItem value="phone call">Phone Call</SelectItem>
+            <SelectItem value="quotation">Quotation</SelectItem>
+            <SelectItem value="brochure request">Brochure Request</SelectItem>
+          </SelectContent>
+        </Select>
+      ) : (
+        row.followUpActivity
+      );
+    }
+    return row[key];
+  };
+
+  const [editingId, setEditingId] = useState(null);
+  const [editData, setEditData] = useState({});
+
+  const startEdit = (row) => {
+    setEditingId(row._id || row.id);
+    setEditData({
+      name: row.name || "",
+      status: row.status || "open",
+      category: row.category || "Brochure request",
+      startDate: fmtDate(row.startDate) || new Date().toISOString().slice(0,10),
+      endDate: fmtDate(row.endDate) || "",
+      followUpActivity: row.followUpActivity || "visit",
+    });
+  };
+
+  const updateEdit = (field, value) => {
+    setEditData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const saveEdit = async (row) => {
+    try {
+      const id = row._id || row.id;
+      await axios.put(`http://localhost:5000/api/leads/${id}`, {
+        ...editData,
+        startDate: editData.startDate ? new Date(editData.startDate) : undefined,
+        endDate: editData.endDate ? new Date(editData.endDate) : undefined,
+      });
+      setEditingId(null);
+      setEditData({});
+      fetchLeads();
+    } catch (e) {
+      alert("Failed to update lead: " + (e.response?.data || e.message));
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditData({});
+  };
+
   const getStatusBadge = (status) => {
-    const variant = status === "Qualified" ? "default" : status === "In process" ? "secondary" : "outline";
+    const s = (status || '').toLowerCase();
+    const variant = s === "qualified" ? "default" : s === "in process" ? "secondary" : "outline";
     return <Badge variant={variant}>{status}</Badge>;
   };
   const getPriorityBadge = (priority) => {
-    const variant = priority === "High" ? "destructive" : priority === "Medium" ? "default" : "outline";
+    const p = (priority || '').toLowerCase();
+    const variant = p === "immediate" ? "destructive" : p === "urgent" ? "default" : "outline";
     return <Badge variant={variant}>{priority}</Badge>;
   };
   const getQualificationBadge = (level) => {
-    const variant = level === "Hot" ? "destructive" : level === "Warm" ? "default" : "outline";
+    const l = (level || '').toLowerCase();
+    const variant = l === "hot" ? "destructive" : l === "warm" ? "default" : "outline";
     return <Badge variant={variant}>{level}</Badge>;
+  };
+
+  const fmtDate = (d) => {
+    if (!d) return "";
+    try {
+      const s = typeof d === 'string' ? d : new Date(d).toISOString();
+      return s.slice(0, 10);
+    } catch {
+      return String(d);
+    }
   };
 
   if (showForm) {
@@ -229,24 +456,72 @@ const Leads = () => {
                   <Input id="name" name="name" value={formData.name} onChange={handleInputChange} required />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="companyName">Company</Label>
-                  <Input id="companyName" name="companyName" value={formData.companyName} onChange={handleInputChange} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="contactName">Contact Name</Label>
-                  <Input id="contactName" name="contactName" value={formData.contactName} onChange={handleInputChange} />
-                </div>
-                <div className="space-y-2">
                   <Label htmlFor="status">Status</Label>
                   <Select value={formData.status} onValueChange={val => handleSelectChange("status", val)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="In process">In Process</SelectItem>
-                      <SelectItem value="Qualified">Qualified</SelectItem>
-                      <SelectItem value="Converted">Converted</SelectItem>
-                      <SelectItem value="Lost">Lost</SelectItem>
+                      <SelectItem value="open">Open</SelectItem>
+                      <SelectItem value="in process">In Process</SelectItem>
+                      <SelectItem value="qualified">Qualified</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2 relative">
+                  <Label htmlFor="account">Account</Label>
+                  <Input
+                    id="account"
+                    name="account"
+                    value={accountQuery}
+                    onChange={(e) => { setAccountQuery(e.target.value); setShowAccountList(true); setFormData(prev => ({ ...prev, account: e.target.value })); }}
+                    placeholder="Type to search account or enter manually"
+                  />
+                  {showAccountList && accountResults.length > 0 && (
+                    <div className="absolute z-10 mt-1 w-full bg-popover border rounded shadow max-h-48 overflow-auto">
+                      {accountResults.map((a, idx) => (
+                        <div key={idx} className="px-3 py-2 hover:bg-muted cursor-pointer" onClick={() => selectAccount(a)}>
+                          <div className="font-medium">{a.name}</div>
+                          <div className="text-xs text-muted-foreground">{[a.city, a.state, a.country].filter(Boolean).join(', ')}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-2 relative">
+                  <Label htmlFor="contact">Contact</Label>
+                  <Input
+                    id="contact"
+                    name="contact"
+                    value={contactQuery}
+                    onChange={(e) => { setContactQuery(e.target.value); setShowContactList(true); setFormData(prev => ({ ...prev, contact: e.target.value })); }}
+                    placeholder="Type to search contact or enter manually"
+                  />
+                  {showContactList && contactResults.length > 0 && (
+                    <div className="absolute z-10 mt-1 w-full bg-popover border rounded shadow max-h-48 overflow-auto">
+                      {contactResults.map((c, idx) => (
+                        <div key={idx} className="px-3 py-2 hover:bg-muted cursor-pointer" onClick={() => selectContact(c)}>
+                          <div className="font-medium">{c.name}</div>
+                          <div className="text-xs text-muted-foreground">{c.email} {c.mobile ? `• ${c.mobile}` : ''}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="department">Department</Label>
+                  <Input id="department" name="department" value={formData.department} onChange={handleInputChange} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="owner">Owner</Label>
+                  <Select value={formData.owner} onValueChange={val => handleSelectChange("owner", val)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select owner" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="user1">user1</SelectItem>
+                      <SelectItem value="user2">user2</SelectItem>
+                      <SelectItem value="user3">user3</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -257,9 +532,9 @@ const Leads = () => {
                       <SelectValue placeholder="Select qualification level" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Hot">Hot</SelectItem>
-                      <SelectItem value="Warm">Warm</SelectItem>
-                      <SelectItem value="Cold">Cold</SelectItem>
+                      <SelectItem value="cold">Cold</SelectItem>
+                      <SelectItem value="warm">Warm</SelectItem>
+                      <SelectItem value="hot">Hot</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -269,28 +544,33 @@ const Leads = () => {
                     <SelectTrigger>
                       <SelectValue placeholder="Select source" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Website">Website</SelectItem>
-                      <SelectItem value="Referral">Referral</SelectItem>
-                      <SelectItem value="Trade Show">Trade Show</SelectItem>
-                      <SelectItem value="Cold Call">Cold Call</SelectItem>
-                      <SelectItem value="Social Media">Social Media</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
-                  <Select value={formData.category} onValueChange={val => handleSelectChange("category", val)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Retail">Retail</SelectItem>
-                      <SelectItem value="Wholesale">Wholesale</SelectItem>
-                      <SelectItem value="Enterprise">Enterprise</SelectItem>
-                      <SelectItem value="SMB">SMB</SelectItem>
-                    </SelectContent>
+                   <SelectContent>
+                    <SelectItem value="Customer event/workshop">Customer event/workshop</SelectItem>
+                    <SelectItem value="Customer visit">Customer visit</SelectItem>
+                    <SelectItem value="Direct mail">Direct mail</SelectItem>
+                    <SelectItem value="ePocket">ePocket</SelectItem>
+                    <SelectItem value="Ext. data sources (incl.ZoomInfo,Hover)">Ext. data sources (incl.ZoomInfo,Hover)</SelectItem>
+                    <SelectItem value="External Partner">External Partner</SelectItem>
+                    <SelectItem value="Further configurators">Further configurators</SelectItem>
+                    <SelectItem value="Further Social Media">Further Social Media</SelectItem>
+                    <SelectItem value="LinkedIn">LinkedIn</SelectItem>
+                    <SelectItem value="Meta (incl. Facebook, Instagram)">Meta (incl. Facebook, Instagram)</SelectItem>
+                    <SelectItem value="Online Shop">Online Shop</SelectItem>
+                    <SelectItem value="Potential Needs Analysis">Potential Needs Analysis</SelectItem>
+                    <SelectItem value="RiPanel">RiPanel</SelectItem>
+                    <SelectItem value="RiPower">RiPower</SelectItem>
+                    <SelectItem value="RiTherm">RiTherm</SelectItem>
+                    <SelectItem value="Rittal Application Center">Rittal Application Center</SelectItem>
+                    <SelectItem value="Rittal Innovation Center">Rittal Innovation Center</SelectItem>
+                    <SelectItem value="Rittal website (incl. Campaign)">Rittal website (incl. Campaign)</SelectItem>
+                    <SelectItem value="Roadshow">Roadshow</SelectItem>
+                    <SelectItem value="Telephone">Telephone</SelectItem>
+                    <SelectItem value="Trade fair">Trade fair</SelectItem>
+                    <SelectItem value="Webinar">Webinar</SelectItem>
+                    <SelectItem value="X (Twitter)">X (Twitter)</SelectItem>
+                    <SelectItem value="YouTube">YouTube</SelectItem>
+                  </SelectContent>
+
                   </Select>
                 </div>
                 <div className="space-y-2">
@@ -300,67 +580,104 @@ const Leads = () => {
                       <SelectValue placeholder="Select priority" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="High">High</SelectItem>
-                      <SelectItem value="Medium">Medium</SelectItem>
-                      <SelectItem value="Low">Low</SelectItem>
+                      <SelectItem value="immediate">Immediate</SelectItem>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="normal">Normal</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="campaign">Campaign</Label>
-                  <Input id="campaign" name="campaign" value={formData.campaign} onChange={handleInputChange} />
+                  <Label htmlFor="startDate">Start Date</Label>
+                  <Input id="startDate" name="startDate" type="date" value={formData.startDate} onChange={handleInputChange} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="owner">Owner</Label>
-                  <Input id="owner" name="owner" value={formData.owner} onChange={handleInputChange} />
+                  <Label htmlFor="endDate">End Date</Label>
+                  <Input id="endDate" name="endDate" type="date" value={formData.endDate} onChange={handleInputChange} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="follow_up_activity">Follow-up Activity</Label>
-                  <Input id="follow_up_activity" name="follow_up_activity" value={formData.follow_up_activity} onChange={handleInputChange} />
+                  <Label htmlFor="category">Category</Label>
+                  <Select value={formData.category} onValueChange={val => handleSelectChange("category", val)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Brochure request">Brochure request</SelectItem>
+                      <SelectItem value="Prospect for Consulting">Prospect for Consulting</SelectItem>
+                      <SelectItem value="Prospect for Product Sales">Prospect for Product Sales</SelectItem>
+                      <SelectItem value="Prospect for Service">Prospect for Service</SelectItem>
+                      <SelectItem value="Prospect for Training">Prospect for Training</SelectItem>
+                      <SelectItem value="Value Chain">Value Chain</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="followUpActivity">Follow-Up Activity</Label>
+                  <Select value={formData.followUpActivity} onValueChange={val => handleSelectChange("followUpActivity", val)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select activity" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="visit">Visit</SelectItem>
+                      <SelectItem value="phone call">Phone Call</SelectItem>
+                      <SelectItem value="quotation">Quotation</SelectItem>
+                      <SelectItem value="brochure request">Brochure Request</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </FormSection>
-              <FormSection title="Location Information">
+              <FormSection title="Location & Contact">
                 <div className="space-y-2">
-                  <Label htmlFor="city">City</Label>
-                  <Input id="city" name="city" value={formData.accountInfo.city} onChange={handleInputChange} />
+                  <Label htmlFor="address">Address</Label>
+                  <Input id="address" name="address" value={formData.address} onChange={handleInputChange} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="country">Country/Region</Label>
-                  <Input id="country" name="country" value={formData.accountInfo.country} onChange={handleInputChange} />
+                  <Label htmlFor="city">City</Label>
+                  <Input id="city" name="city" value={formData.city} onChange={handleInputChange} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="state">State</Label>
-                  <Input id="state" name="state" value={formData.accountInfo.state} onChange={handleInputChange} />
+                  <Input id="state" name="state" value={formData.state} onChange={handleInputChange} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="country">Country/Region</Label>
+                  <Input id="country" name="country" value={formData.country} onChange={handleInputChange} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="postalCode">Postal Code</Label>
-                  <Input id="postalCode" name="postalCode" value={formData.accountInfo.postalCode} onChange={handleInputChange} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="language">Language</Label>
-                  <Input id="language" name="language" value={formData.accountInfo.language} onChange={handleInputChange} />
-                </div>
-              </FormSection>
-              <FormSection title="Contact Information">
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input id="phone" name="phone" value={formData.contactInfo.phone} onChange={handleInputChange} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="mobile">Mobile</Label>
-                  <Input id="mobile" name="mobile" value={formData.contactInfo.mobile} onChange={handleInputChange} />
+                  <Input id="postalCode" name="postalCode" value={formData.postalCode} onChange={handleInputChange} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" name="email" type="email" value={formData.contactInfo.email} onChange={handleInputChange} />
+                  <Input id="email" name="email" type="email" value={formData.email} onChange={handleInputChange} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="mobile">Mobile</Label>
+                  <Input id="mobile" name="mobile" value={formData.mobile} onChange={handleInputChange} />
+                </div>
+                <div className="flex items-center gap-2 mt-6">
+                  <Checkbox
+                    id="saveToMaster"
+                    className="h-5 w-5"
+                    checked={saveToMaster}
+                    onCheckedChange={(v) => {
+                      const val = !!v;
+                      setSaveToMaster(val);
+                      if (val) {
+                        showNotification('success', '📌 Added to Account & Contacts ');
+                      } else {
+                        showNotification('info', 'Add to Account & Contacts disabled');
+                      }
+                    }}
+                  />
+                  <Label htmlFor="saveToMaster" className="text-sm font-semibold">
+                    Add to Account & Contacts
+                  </Label>
                 </div>
               </FormSection>
-              <FormSection title="Notes">
-                <div className="space-y-2 lg:col-span-2">
-                  <Label htmlFor="notes">Note</Label>
-                  <Textarea id="notes" name="notes" value={formData.notes} onChange={handleInputChange} rows={4} />
-                </div>
-              </FormSection>
+
+
+              
               <div className="flex justify-end space-x-4 pt-6 border-t border-border">
                 <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
                 <Button type="submit">Save Lead</Button>
@@ -394,54 +711,29 @@ const Leads = () => {
           </CardHeader>
           <CardContent>
             <div className="overflow-auto max-h-[600px]">
-              <Table>
-                  <TableHeader className="sticky top-0 bg-background">
-                  <TableRow>
-                    {isVisible('name') && <TableHead className="cursor-pointer" onClick={() => handleSort('name')}>Name</TableHead>}
-                    {isVisible('companyName') && <TableHead className="cursor-pointer" onClick={() => handleSort('companyName')}>Company</TableHead>}
-                    {isVisible('contactName') && <TableHead className="cursor-pointer" onClick={() => handleSort('contactName')}>Contact Name</TableHead>}
-                    {isVisible('status') && <TableHead className="cursor-pointer" onClick={() => handleSort('status')}>Status</TableHead>}
-                    {isVisible('qualificationLevel') && <TableHead className="cursor-pointer" onClick={() => handleSort('qualificationLevel')}>Qualification</TableHead>}
-                    {isVisible('source') && <TableHead className="cursor-pointer" onClick={() => handleSort('source')}>Source</TableHead>}
-                    {isVisible('category') && <TableHead className="cursor-pointer" onClick={() => handleSort('category')}>Category</TableHead>}
-                    {isVisible('priority') && <TableHead className="cursor-pointer" onClick={() => handleSort('priority')}>Priority</TableHead>}
-                    {isVisible('campaign') && <TableHead className="cursor-pointer" onClick={() => handleSort('campaign')}>Campaign</TableHead>}
-                    {isVisible('owner') && <TableHead className="cursor-pointer" onClick={() => handleSort('owner')}>Owner</TableHead>}
-                    {isVisible('follow_up_activity') && <TableHead className="cursor-pointer" onClick={() => handleSort('follow_up_activity')}>Follow-up</TableHead>}
-                    {isVisible('city') && <TableHead className="cursor-pointer" onClick={() => handleSort('city')}>City</TableHead>}
-                    {isVisible('state') && <TableHead className="cursor-pointer" onClick={() => handleSort('state')}>State</TableHead>}
-                    {isVisible('phone') && <TableHead className="cursor-pointer" onClick={() => handleSort('phone')}>Phone</TableHead>}
-                    {isVisible('email') && <TableHead className="cursor-pointer" onClick={() => handleSort('email')}>Email</TableHead>}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paginatedLeads.map((lead) => (
-                    <TableRow key={lead._id || lead.id} className="cursor-pointer hover:bg-muted/50">
-                      {isVisible('name') && <TableCell className="font-medium">{lead.name}</TableCell>}
-                      {isVisible('companyName') && <TableCell>{lead.companyName}</TableCell>}
-                      {isVisible('contactName') && <TableCell>{lead.contactName}</TableCell>}
-                      {isVisible('status') && <TableCell>{getStatusBadge(lead.status)}</TableCell>}
-                      {isVisible('qualificationLevel') && <TableCell>{getQualificationBadge(lead.qualificationLevel)}</TableCell>}
-                      {isVisible('source') && <TableCell>{lead.source}</TableCell>}
-                      {isVisible('category') && <TableCell>{lead.category}</TableCell>}
-                      {isVisible('priority') && <TableCell>{getPriorityBadge(lead.priority)}</TableCell>}
-                      {isVisible('campaign') && <TableCell>{lead.campaign}</TableCell>}
-                      {isVisible('owner') && <TableCell>{lead.owner}</TableCell>}
-                      {isVisible('follow_up_activity') && <TableCell>{lead.follow_up_activity}</TableCell>}
-                      {isVisible('city') && <TableCell>{lead.accountInfo?.city || ""}</TableCell>}
-                      {isVisible('state') && <TableCell>{lead.accountInfo?.state || ""}</TableCell>}
-                      {isVisible('phone') && <TableCell>{lead.contactInfo?.phone || ""}</TableCell>}
-                      {isVisible('email') && (
-                        <TableCell>
-                          <a href={`mailto:${lead.contactInfo?.email || lead.email}`} className="text-primary hover:underline">
-                            {lead.contactInfo?.email || lead.email}
-                          </a>
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <ResizableTable
+                columns={columnsConfig}
+                data={paginatedLeads}
+                visible={visibleColumns}
+                onSort={handleSort}
+                renderCell={renderCell}
+                actions={{
+                  header: 'Actions',
+                  cell: (lead) => (
+                    editingId === (lead._id || lead.id) ? (
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={() => saveEdit(lead)}>Save</Button>
+                        <Button size="sm" variant="outline" onClick={cancelEdit}>Cancel</Button>
+                      </div>
+                    ) : (
+                      <Button size="icon" variant="outline" onClick={() => startEdit(lead)} aria-label="Edit lead">
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    )
+                  )
+                }}
+                minTableWidth={1000}
+              />
             </div>
             {/* Pagination */}
             <div className="flex items-center justify-between mt-4">

@@ -9,7 +9,7 @@ import {
   BarChart3,
   TrendingUp,
   Users,
-  DollarSign,
+  IndianRupee,
   Calendar,
   Activity
 } from "lucide-react";
@@ -35,8 +35,8 @@ const Dashboard = () => {
   },
   {
     title: "Revenue This Month",
-    value: "$0",
-    icon: DollarSign,
+    value: "₹0",
+    icon: IndianRupee,
     color: "text-warning"
   } ];
   return ( <div className="min-h-screen bg-background">

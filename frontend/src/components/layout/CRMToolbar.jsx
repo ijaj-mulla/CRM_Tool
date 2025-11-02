@@ -38,7 +38,8 @@ export const CRMToolbar = ({
   actions = defaultActions,
   onAction,
   className,
-  leadingContent
+  leadingContent,
+  showMoreOptions = true
 }) => {
   
 
@@ -66,18 +67,42 @@ export const CRMToolbar = ({
   // Hidden file input ref
   const fileInputRef = React.useRef(null);
 
-  const getImportUrl = () => {
+  const getImportUrl = (opts = {}) => {
     const t = (title || "").toLowerCase();
-    if (t.includes("accounts")) return "http://localhost:5000/api/accounts/import-excel";
+    if (t.includes("accounts")) {
+      // Optionally add query params
+      const base = "http://localhost:5000/api/accounts/import-excel";
+      if (opts && opts.query) return `${base}?${new URLSearchParams(opts.query).toString()}`;
+      return base;
+    }
     if (t.includes("contacts")) return "http://localhost:5000/api/contacts/import-excel";
     if (t.includes("leads")) return "http://localhost:5000/api/leads/import-excel";
+    if (t.includes("products")) return "http://localhost:5000/api/products/import-excel";
+    if (t.includes("suppliers")) {
+      const base = "http://localhost:5000/api/suppliers/import-excel";
+      if (opts && opts.query) return `${base}?${new URLSearchParams(opts.query).toString()}`;
+      return base;
+    }
     return null;
   };
 
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = getImportUrl();
+    // Ask for additional contact creation when importing Accounts
+    let url;
+    const lowerTitle = (title || "").toLowerCase();
+    const isAccounts = lowerTitle.includes("accounts");
+    const isSuppliers = lowerTitle.includes("suppliers");
+    if (isAccounts) {
+      const alsoCreateContacts = window.confirm("Also create Contacts for imported Accounts?\nThis will add a contact per account using mainContact, email, and related fields if not already present.");
+      url = getImportUrl({ query: alsoCreateContacts ? { createContacts: 'true' } : undefined });
+    } else if (isSuppliers) {
+      const alsoCreateContacts = window.confirm("Also create Supplier Contacts for imported Suppliers?\nThis will add a contact per supplier using fields if not already present.");
+      url = getImportUrl({ query: alsoCreateContacts ? { createContacts: 'true' } : undefined });
+    } else {
+      url = getImportUrl();
+    }
     if (!url) {
       toast({ title: "Import not available", description: "This page doesn't support Excel import.", variant: "destructive" });
       e.target.value = "";
@@ -86,8 +111,24 @@ export const CRMToolbar = ({
     try {
       const formData = new FormData();
       formData.append("file", file);
-      await axios.post(url, formData, { headers: { "Content-Type": "multipart/form-data" } });
-      toast({ title: "Import successful", description: `${file.name} imported.` });
+      const res = await axios.post(url, formData, { headers: { "Content-Type": "multipart/form-data" } });
+      const data = res?.data || {};
+      if (typeof data.processed === 'number') {
+        if (data.processed > 0) {
+          const extra = (typeof data.contactsCreated === 'number' && data.contactsCreated > 0)
+            ? ` | Contacts Created: ${data.contactsCreated}`
+            : '';
+          toast({
+            title: "Import completed",
+            description: `Processed: ${data.processed} | Created: ${data.created || 0} | Updated: ${data.updated || 0}${extra}`,
+          });
+        } else {
+          toast({ title: "No valid rows to import", description: `${file.name}`, variant: "destructive" });
+        }
+      } else {
+        // Fallback generic success
+        toast({ title: "Import successful", description: `${file.name} imported.` });
+      }
       emitGlobal('refresh');
     } catch (err) {
       const msg = err?.response?.data?.message || err?.response?.data?.error || err?.message || 'Import failed';
@@ -218,36 +259,39 @@ export const CRMToolbar = ({
                 </TooltipContent>
               </Tooltip>
             ))}
-            {/* More Options dropdown with Import Excel */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={cn(
-                    "h-9 w-9 p-0",
-                    "text-primary hover:text-primary-foreground hover:bg-primary",
-                    "transition-all duration-200"
-                  )}
-                >
-                  <MoreHorizontal className="w-4 h-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuLabel>More Options</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                  Import Excel
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".xlsx,.xls"
-              className="hidden"
-              onChange={handleFileChange}
-            />
+            {showMoreOptions && (
+              <>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={cn(
+                        "h-9 w-9 p-0",
+                        "text-primary hover:text-primary-foreground hover:bg-primary",
+                        "transition-all duration-200"
+                      )}
+                    >
+                      <MoreHorizontal className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuLabel>More Options</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem className="cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                      Import Excel
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+              </>
+            )}
           </TooltipProvider>
         )}
       </div>

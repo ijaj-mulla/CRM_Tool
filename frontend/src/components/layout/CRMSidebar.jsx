@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { NavLink } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Home,
   Calendar,
@@ -22,7 +22,9 @@ import {
   CalendarCheck,
   Mail,
   CheckSquare,
-  Navigation
+  Navigation,
+  Briefcase,
+  Truck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -85,6 +87,11 @@ const menuItems = [
       }
     ]
   },
+   {
+    name: "Competitors",
+    icon: Briefcase,
+    path: "/customers/competitors"
+  },
   {
     name: "Activities",
     icon: Activity,
@@ -107,32 +114,64 @@ const menuItems = [
     ]
   },
   {
-    name: "Visits",
-    icon: Navigation,
-    children: [
-      {
-        name: "Visit List",
-        icon: MapPin,
-        path: "/visits/list"
-      }
-    ]
-  },
-  {
     name: "Products",
     icon: Package,
+    path: "/products/products"
+  },
+  {
+    name: "Suppliers",
+    icon: Truck,
     children: [
       {
-        name: "Inventory",
-        icon: ClipboardList,
-        path: "/products/inventory"
+        name: "Suppliers",
+        icon: Building2,
+        path: "/suppliers/suppliers"
+      },
+      {
+        name: "Supplier Contacts",
+        icon: Users,
+        path: "/suppliers/contacts"
       }
     ]
   },
-  
+
+  // {
+  //   name: "Visits",
+  //   icon: Navigation,
+  //   children: [
+  //     {
+  //       name: "Visit List",
+  //       icon: MapPin,
+  //       path: "/visits/list"
+  //     }
+  //   ]
+  // },
 ];
 
 const CRMSidebar = ({ isOpen, onToggle }) => {
   const [openMenus, setOpenMenus] = useState([]);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Auto-open parent menus based on current route
+  useEffect(() => {
+    const toOpen = [];
+    menuItems.forEach((item) => {
+      if (item.children && item.children.some((c) => location.pathname.startsWith(c.path))) {
+        toOpen.push(item.name);
+      }
+    });
+    setOpenMenus(toOpen);
+  }, [location.pathname]);
+
+  const handleNavigate = (targetPath) => {
+    const isSamePath = location.pathname === targetPath;
+    if (isSamePath) {
+      navigate(`${targetPath}?refresh=${Date.now()}`, { replace: true });
+    } else {
+      navigate(targetPath);
+    }
+  };
 
   const toggleMenu = (menuName) => {
     setOpenMenus(prev => 
@@ -161,13 +200,20 @@ const CRMSidebar = ({ isOpen, onToggle }) => {
         "w-64 shadow-medium"
       )}>
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
-          <h2 className="text-lg font-semibold text-sidebar-foreground">CRM System</h2>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-sidebar-border bg-gradient-to-r from-card/60 to-transparent">
+          <div className="flex items-center gap-3">
+            <img src="/logo-crm.svg" alt="CRM" className="h-7 w-7 rounded-md shadow-sm ring-1 ring-white/10" />
+            <div className="leading-tight">
+              <div className="text-base font-semibold tracking-tight text-sidebar-foreground">CRM System</div>
+              <div className="text-xs text-muted-foreground">Manage Connections</div>
+            </div>
+          </div>
           <Button
             variant="ghost"
             size="icon"
             className="lg:hidden"
             onClick={onToggle}
+            aria-label="Close sidebar"
           >
             <X className="h-4 w-4" />
           </Button>
@@ -184,9 +230,11 @@ const CRMSidebar = ({ isOpen, onToggle }) => {
                   className={({ isActive }) => cn(
                     "flex items-center space-x-3 px-3 py-2 text-sm rounded-md transition-colors",
                     "hover:bg-sidebar-hover text-sidebar-foreground",
-                    isActive && "bg-primary text-primary-foreground font-medium shadow-sm"
+                    (isActive || location.pathname.startsWith(item.path)) && "bg-primary text-primary-foreground font-medium shadow-sm"
                   )}
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleNavigate(item.path);
                     if (window.innerWidth < 1024) {
                       onToggle();
                     }
@@ -199,7 +247,9 @@ const CRMSidebar = ({ isOpen, onToggle }) => {
                 <Collapsible
                   key={item.name}
                   open={isMenuOpen(item.name)}
-                  onOpenChange={() => toggleMenu(item.name)}
+                  onOpenChange={(open) => {
+                    setOpenMenus((prev) => open ? Array.from(new Set([...prev, item.name])) : prev.filter((n) => n !== item.name));
+                  }}
                 >
                   <CollapsibleTrigger asChild>
                     <Button
@@ -207,8 +257,17 @@ const CRMSidebar = ({ isOpen, onToggle }) => {
                       className={cn(
                         "w-full justify-between text-left font-normal h-9",
                         "hover:bg-sidebar-hover text-sidebar-foreground",
-                        isMenuOpen(item.name) && "bg-sidebar-active text-primary font-medium"
+                        (isMenuOpen(item.name) || item.children.some((c) => location.pathname.startsWith(c.path))) && "bg-sidebar-active text-primary font-medium"
                       )}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        // Always open the menu and navigate to its primary child list
+                        const defaultChild = item.children[0];
+                        setOpenMenus((prev) => Array.from(new Set([...prev, item.name])));
+                        if (defaultChild?.path) {
+                          handleNavigate(defaultChild.path);
+                        }
+                      }}
                     >
                       <div className="flex items-center space-x-3">
                         <item.icon className="w-4 h-4" />
@@ -229,9 +288,13 @@ const CRMSidebar = ({ isOpen, onToggle }) => {
                         className={({ isActive }) => cn(
                           "flex items-center space-x-3 px-3 py-2 text-sm rounded-md transition-colors",
                           "hover:bg-sidebar-hover text-sidebar-foreground",
-                          isActive && "bg-primary text-primary-foreground font-medium shadow-sm"
+                          (isActive || (child.path && location.pathname.startsWith(child.path))) && "bg-primary text-primary-foreground font-medium shadow-sm"
                         )}
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (child.path) {
+                            handleNavigate(child.path);
+                          }
                           if (window.innerWidth < 1024) {
                             onToggle();
                           }

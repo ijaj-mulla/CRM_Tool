@@ -1,18 +1,62 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5000';
+
+const DEMO_EMAILS = [
+  {
+    _id: 'demo1',
+    from: 'Airtel India <no-reply@airtel.in>',
+    subject: 'Your Airtel bill for November 2025',
+    date: new Date().toISOString(),
+    snippet: 'Dear Customer, your Airtel postpaid bill is now available. Pay before 15 Nov to avoid late fee.'
+  },
+  {
+    _id: 'demo2',
+    from: 'IRCTC <tickets@irctc.co.in>',
+    subject: 'E-Ticket Booking Confirmation - NDLS to BCT',
+    date: new Date(Date.now() - 86400000).toISOString(),
+    snippet: 'PNR 2456789012 confirmed. Coach B2, Seat 23. Boarding at New Delhi. Have a pleasant journey.'
+  },
+  {
+    _id: 'demo3',
+    from: 'SBI Cards <alerts@sbicard.com>',
+    subject: 'Transaction Alert: INR 2,499 at Amazon.in',
+    date: new Date(Date.now() - 2 * 86400000).toISOString(),
+    snippet: 'A transaction of INR 2,499 has been made on your SBI Card ending 1234. If not you, call helpline immediately.'
+  },
+  {
+    _id: 'demo4',
+    from: 'Flipkart <no-reply@flipkart.com>',
+    subject: 'Your order has been shipped',
+    date: new Date(Date.now() - 3 * 86400000).toISOString(),
+    snippet: 'Order OD123456789 is on the way. Expected delivery: 05 Nov. Track your package in the Flipkart app.'
+  },
+  {
+    _id: 'demo5',
+    from: 'HDFC Bank <alerts@hdfcbank.net>',
+    subject: 'NetBanking OTP for login',
+    date: new Date(Date.now() - 4 * 86400000).toISOString(),
+    snippet: 'Use OTP 864213 to login. Do not share this with anyone. HDFC Bank will never ask for your OTP.'
+  }
+];
+
 const EmailsPage = () => {
+  const location = useLocation();
   const [emails, setEmails] = useState([]);
   const [loading, setLoading] = useState(false);
   const [syncStatus, setSyncStatus] = useState('');
+  const forceDemo = (import.meta.env.VITE_FORCE_DEMO_EMAILS === 'true') || (new URLSearchParams(location.search).get('demo') === '1');
 
   // Fetch emails from backend
   const fetchEmails = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/emails');
+      const response = await axios.get(`${API_BASE}/api/emails`);
       setEmails(response.data);
     } catch (error) {
       console.error('Error fetching emails:', error);
+      setEmails([]);
     }
   };
 
@@ -21,7 +65,7 @@ const EmailsPage = () => {
     setLoading(true);
     setSyncStatus('');
     try {
-      const response = await axios.post('http://localhost:5000/api/emails/sync');
+      const response = await axios.post(`${API_BASE}/api/emails/sync`);
       setSyncStatus(`${response.data.newEmailsCount} new emails synced`);
       fetchEmails(); // Refresh the email list
     } catch (error) {
@@ -65,7 +109,7 @@ const EmailsPage = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {emails.map((email) => (
+              {((!forceDemo && emails && emails.length > 0) ? emails : DEMO_EMAILS).map((email) => (
                 <tr key={email._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{email.from}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{email.subject}</td>

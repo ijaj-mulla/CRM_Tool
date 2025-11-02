@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import ResizableTable from "@/components/table/ResizableTable";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -53,6 +54,15 @@ const Appointments = () => {
   const [showForm, setShowForm] = useState(false);
   const [appointments, setAppointments] = useState([]);
   const [formData, setFormData] = useState({ ...DEFAULTS });
+  // Typeahead state
+  const [accountQuery, setAccountQuery] = useState("");
+  const [contactQuery, setContactQuery] = useState("");
+  const [accountsCache, setAccountsCache] = useState([]);
+  const [contactsCache, setContactsCache] = useState([]);
+  const [accountResults, setAccountResults] = useState([]);
+  const [contactResults, setContactResults] = useState([]);
+  const [showAccountList, setShowAccountList] = useState(false);
+  const [showContactList, setShowContactList] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState("");
   const [sortDirection, setSortDirection] = useState("asc");
@@ -85,6 +95,71 @@ const Appointments = () => {
   useEffect(() => {
     localStorage.setItem(storageKey, JSON.stringify(visibleColumns));
   }, [visibleColumns]);
+
+  // Load accounts/contacts when form opens for typeahead
+  useEffect(() => {
+    const loadRefs = async () => {
+      try {
+        const [accRes, conRes] = await Promise.all([
+          axios.get("http://localhost:5000/api/accounts"),
+          axios.get("http://localhost:5000/api/contacts"),
+        ]);
+        setAccountsCache(accRes.data || []);
+        setContactsCache(conRes.data || []);
+      } catch (e) {
+        // ignore
+      }
+    };
+    if (showForm) loadRefs();
+  }, [showForm]);
+
+  // Debounced filter accounts
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (!accountQuery || accountQuery.trim().length < 2) {
+        setAccountResults([]); setShowAccountList(false); return;
+      }
+      const q = accountQuery.toLowerCase();
+      const matches = accountsCache.filter(a =>
+        (a.name || "").toLowerCase().includes(q) ||
+        (a.accountId || "").toLowerCase().includes(q)
+      ).slice(0, 10);
+      setAccountResults(matches);
+      setShowAccountList(matches.length > 0);
+    }, 200);
+    return () => clearTimeout(t);
+  }, [accountQuery, accountsCache]);
+
+  // Debounced filter contacts
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (!contactQuery || contactQuery.trim().length < 2) {
+        setContactResults([]); setShowContactList(false); return;
+      }
+      const q = contactQuery.toLowerCase();
+      const matches = contactsCache.filter(c =>
+        (c.mainContact || "").toLowerCase().includes(q) ||
+        (c.email || "").toLowerCase().includes(q) ||
+        (c.mobile || "").toString().toLowerCase().includes(q)
+      ).slice(0, 10);
+      setContactResults(matches);
+      setShowContactList(matches.length > 0);
+    }, 200);
+    return () => clearTimeout(t);
+  }, [contactQuery, contactsCache]);
+
+  const selectAccount = (acc) => {
+    setFormData(prev => ({ ...prev, account: acc.name }));
+    setAccountQuery(acc.name);
+    setShowAccountList(false);
+  };
+
+  const selectContact = (c) => {
+    const name = c.mainContact || c.name;
+    setFormData(prev => ({ ...prev, primary_contact: name }));
+    setContactQuery(name);
+    setShowContactList(false);
+  };
 
   const fetchAppointments = async () => {
     try {
@@ -172,17 +247,49 @@ const Appointments = () => {
                   <Label htmlFor="subject">Subject</Label>
                   <Input id="subject" name="subject" value={formData.subject} onChange={handleInputChange} required />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 relative">
                   <Label htmlFor="account">Account</Label>
-                  <Input id="account" name="account" value={formData.account} onChange={handleInputChange} />
+                  <Input
+                    id="account"
+                    name="account"
+                    value={accountQuery}
+                    onChange={(e) => { setAccountQuery(e.target.value); setShowAccountList(true); setFormData(prev => ({ ...prev, account: e.target.value })); }}
+                    placeholder="Type to search account or enter manually"
+                  />
+                  {showAccountList && accountResults.length > 0 && (
+                    <div className="absolute z-10 mt-1 w-full bg-popover border rounded shadow max-h-48 overflow-auto">
+                      {accountResults.map((a) => (
+                        <div key={a._id} className="px-3 py-2 hover:bg-muted cursor-pointer" onClick={() => selectAccount(a)}>
+                          <div className="font-medium">{a.name}</div>
+                          <div className="text-xs text-muted-foreground">{a.accountId}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="sales_organization">Sales Organization</Label>
                   <Input id="sales_organization" name="sales_organization" value={formData.sales_organization} onChange={handleInputChange} />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 relative">
                   <Label htmlFor="primary_contact">Primary Contact</Label>
-                  <Input id="primary_contact" name="primary_contact" value={formData.primary_contact} onChange={handleInputChange} />
+                  <Input
+                    id="primary_contact"
+                    name="primary_contact"
+                    value={contactQuery}
+                    onChange={(e) => { setContactQuery(e.target.value); setShowContactList(true); setFormData(prev => ({ ...prev, primary_contact: e.target.value })); }}
+                    placeholder="Type to search contact or enter manually"
+                  />
+                  {showContactList && contactResults.length > 0 && (
+                    <div className="absolute z-10 mt-1 w-full bg-popover border rounded shadow max-h-48 overflow-auto">
+                      {contactResults.map((c) => (
+                        <div key={c._id} className="px-3 py-2 hover:bg-muted cursor-pointer" onClick={() => selectContact(c)}>
+                          <div className="font-medium">{c.mainContact}</div>
+                          <div className="text-xs text-muted-foreground">{c.email} {c.mobile ? `• ${c.mobile}` : ''}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </FormSection>
 
@@ -259,7 +366,16 @@ const Appointments = () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="owner">Owner</Label>
-                  <Input id="owner" name="owner" value={formData.owner} onChange={handleInputChange} />
+                  <ShadSelect value={formData.owner} onValueChange={val => handleSelectChange("owner", val)}>
+                    <ShadSelectTrigger>
+                      <ShadSelectValue placeholder="Select owner" />
+                    </ShadSelectTrigger>
+                    <ShadSelectContent>
+                      <ShadSelectItem value="user1">user1</ShadSelectItem>
+                      <ShadSelectItem value="user2">user2</ShadSelectItem>
+                      <ShadSelectItem value="user3">user3</ShadSelectItem>
+                    </ShadSelectContent>
+                  </ShadSelect>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="territory">Sales Territory</Label>
@@ -333,40 +449,30 @@ const Appointments = () => {
           </CardHeader>
           <CardContent>
             <div className="overflow-auto max-h-[600px]">
-              <Table>
-                <TableHeader className="sticky top-0 bg-background">
-                  <TableRow>
-                    {isVisible('subject') && <TableHead onClick={() => setSortField('subject')}>Subject</TableHead>}
-                    {isVisible('account') && <TableHead onClick={() => setSortField('account')}>Account</TableHead>}
-                    {isVisible('sales_organization') && <TableHead onClick={() => setSortField('sales_organization')}>Sales Organization</TableHead>}
-                    {isVisible('primary_contact') && <TableHead onClick={() => setSortField('primary_contact')}>Primary Contact</TableHead>}
-                    {isVisible('start') && <TableHead onClick={() => setSortField('start')}>Start</TableHead>}
-                    {isVisible('end') && <TableHead onClick={() => setSortField('end')}>End</TableHead>}
-                    {isVisible('category') && <TableHead onClick={() => setSortField('category')}>Category</TableHead>}
-                    {isVisible('priority') && <TableHead onClick={() => setSortField('priority')}>Priority</TableHead>}
-                    {isVisible('status') && <TableHead onClick={() => setSortField('status')}>Status</TableHead>}
-                    {isVisible('owner') && <TableHead onClick={() => setSortField('owner')}>Owner</TableHead>}
-                    {isVisible('territory') && <TableHead onClick={() => setSortField('territory')}>Sales Territory</TableHead>}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paginated.map((a) => (
-                    <TableRow key={a._id || a.id} className="cursor-pointer hover:bg-muted/50">
-                      {isVisible('subject') && <TableCell className="font-medium">{a.subject}</TableCell>}
-                      {isVisible('account') && <TableCell>{a.account}</TableCell>}
-                      {isVisible('sales_organization') && <TableCell>{a.sales_organization}</TableCell>}
-                      {isVisible('primary_contact') && <TableCell>{a.primary_contact}</TableCell>}
-                      {isVisible('start') && <TableCell>{a.start ? new Date(a.start).toLocaleString() : ""}</TableCell>}
-                      {isVisible('end') && <TableCell>{a.end ? new Date(a.end).toLocaleString() : ""}</TableCell>}
-                      {isVisible('category') && <TableCell>{a.category}</TableCell>}
-                      {isVisible('priority') && <TableCell>{a.priority}</TableCell>}
-                      {isVisible('status') && <TableCell>{a.status}</TableCell>}
-                      {isVisible('owner') && <TableCell>{a.owner}</TableCell>}
-                      {isVisible('territory') && <TableCell>{a.territory}</TableCell>}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <ResizableTable
+                columns={[
+                  { key: 'subject', label: 'Subject', defaultWidth: 180 },
+                  { key: 'account', label: 'Account', defaultWidth: 160 },
+                  { key: 'sales_organization', label: 'Sales Organization', defaultWidth: 180 },
+                  { key: 'primary_contact', label: 'Primary Contact', defaultWidth: 180 },
+                  { key: 'start', label: 'Start', defaultWidth: 180 },
+                  { key: 'end', label: 'End', defaultWidth: 180 },
+                  { key: 'category', label: 'Category', defaultWidth: 160 },
+                  { key: 'priority', label: 'Priority', defaultWidth: 140 },
+                  { key: 'status', label: 'Status', defaultWidth: 140 },
+                  { key: 'owner', label: 'Owner', defaultWidth: 140 },
+                  { key: 'territory', label: 'Sales Territory', defaultWidth: 180 },
+                ]}
+                data={paginated}
+                visible={visibleColumns}
+                onSort={(k) => setSortField(k)}
+                renderCell={(row, key) => {
+                  if (key === 'start') return row.start ? new Date(row.start).toLocaleString() : '';
+                  if (key === 'end') return row.end ? new Date(row.end).toLocaleString() : '';
+                  return row[key];
+                }}
+                minTableWidth={1000}
+              />
             </div>
             <div className="flex items-center justify-between mt-4">
               <div className="text-sm text-muted-foreground">

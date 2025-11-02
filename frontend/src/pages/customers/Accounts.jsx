@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { CRMToolbar } from "@/components/layout/CRMToolbar";
 import { FormCard } from "@/components/forms/FormCard";
 import { FormSection } from "@/components/forms/FormSection";
 import { Input } from "@/components/ui/input";
@@ -8,75 +7,66 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import ResizableTable from "@/components/table/ResizableTable";
 import { Badge } from "@/components/ui/badge";
 import { Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select as ShadSelect, SelectContent as ShadSelectContent, SelectItem as ShadSelectItem, SelectTrigger as ShadSelectTrigger, SelectValue as ShadSelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { countries, getStatesForCountry } from "@/data/countriesStates";
 
 const Accounts = () => {
   const [showForm, setShowForm] = useState(false);
   const [accounts, setAccounts] = useState([]);
   const [formData, setFormData] = useState({
-    accountId: "",
-    accountType: "",
-    accountName: "",
-    prospectRole: "",
-    website: "",
-    status: "",
-    salesOrganization: "",
-    buAssignment: "",
-    industryHorizontal: "",
-    vertical: "",
-    subVertical: "",
-    country: "",
-    postalCode: "",
+    name: "",
+    address: "",
     city: "",
+    accountType: "",
+    mainContact: "",
+    country: "India",
     state: "",
-    district: "",
-    street: "",
-    territory: "",
-    owner: "",
-    taxCountry: "",
-    taxNumberType: "",
-    taxNumber: ""
+    role: "",
+    mobile: "",
+    email: "",
+    industryCode: "",
+    buAssignment: "",
+    horizontal: "",
+    subVertical: "",
+    vertical: "",
+    valueAddedDepth: "",
+    status: "Active"
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState("");
   const [sortDirection, setSortDirection] = useState("asc");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-
-  // Toolbar-driven UI state
   const [showSortDialog, setShowSortDialog] = useState(false);
   const [showColumnsDialog, setShowColumnsDialog] = useState(false);
+  const [availableStates, setAvailableStates] = useState([]);
 
-  // Manage columns (persist per page)
   const allColumns = [
     { key: "accountId", label: "Account ID" },
-    { key: "accountType", label: "Type" },
-    { key: "accountName", label: "Account Name" },
-    { key: "prospectRole", label: "Prospect Role" },
-    { key: "website", label: "Website" },
+    { key: "name", label: "Name" },
+    { key: "accountType", label: "Account Type" },
+    { key: "mainContact", label: "Main Contact" },
     { key: "status", label: "Status" },
-    { key: "salesOrganization", label: "Sales Org" },
-    { key: "buAssignment", label: "BU Assignment" },
-    { key: "industryHorizontal", label: "Industry Horizontal" },
-    { key: "vertical", label: "Vertical" },
-    { key: "subVertical", label: "Sub Vertical" },
-    { key: "country", label: "Country" },
-    { key: "postalCode", label: "Postal Code" },
+    { key: "address", label: "Address" },
     { key: "city", label: "City" },
+    { key: "country", label: "Country" },
     { key: "state", label: "State" },
-    { key: "district", label: "District" },
-    { key: "street", label: "Street" },
-    { key: "territory", label: "Territory" },
-    { key: "owner", label: "Owner" },
-    { key: "taxCountry", label: "Tax Country" },
-    { key: "taxNumberType", label: "Tax Number Type" },
-    { key: "taxNumber", label: "Tax Number" },
+    { key: "role", label: "Role" },
+    { key: "mobile", label: "Mobile" },
+    { key: "email", label: "Email" },
+    { key: "industryCode", label: "Industry Code" },
+    { key: "buAssignment", label: "BU Assignment" },
+    { key: "horizontal", label: "Horizontal" },
+    { key: "subVertical", label: "Sub Vertical" },
+    { key: "vertical", label: "Vertical" },
+    { key: "valueAddedDepth", label: "Value Added Depth" }
   ];
+
   const storageKey = "accounts.visibleColumns";
   const [visibleColumns, setVisibleColumns] = useState(() => {
     const saved = localStorage.getItem(storageKey);
@@ -87,24 +77,19 @@ const Accounts = () => {
   });
   const isVisible = (key) => visibleColumns[key] !== false;
 
-  // Fetch accounts from backend
+  // Using shared ResizableTable for resize, sticky header, and truncation
+
   useEffect(() => {
     fetchAccounts();
   }, []);
 
-  // Listen to global toolbar actions
   useEffect(() => {
     const handler = (e) => {
       const action = e?.detail?.action;
-      if (action === "refresh") {
-        fetchAccounts();
-      } else if (action === "add-new") {
-        setShowForm(true);
-      } else if (action === "sort") {
-        setShowSortDialog(true);
-      } else if (action === "manage-columns") {
-        setShowColumnsDialog(true);
-      }
+      if (action === "refresh") fetchAccounts();
+      else if (action === "add-new") setShowForm(true);
+      else if (action === "sort") setShowSortDialog(true);
+      else if (action === "manage-columns") setShowColumnsDialog(true);
     };
     window.addEventListener("crm-toolbar-action", handler);
     document.addEventListener("crm-toolbar-action", handler);
@@ -114,10 +99,17 @@ const Accounts = () => {
     };
   }, []);
 
-  // Persist column visibility
   useEffect(() => {
     localStorage.setItem(storageKey, JSON.stringify(visibleColumns));
   }, [visibleColumns]);
+
+  useEffect(() => {
+    const states = getStatesForCountry(formData.country);
+    setAvailableStates(states);
+    if (states.length > 0 && !states.includes(formData.state)) {
+      setFormData(prev => ({ ...prev, state: "" }));
+    }
+  }, [formData.country]);
 
   const fetchAccounts = async () => {
     try {
@@ -126,10 +118,6 @@ const Accounts = () => {
     } catch (error) {
       console.error("Error fetching accounts:", error);
     }
-  };
-
-  const handleToolbarAction = (action) => {
-    if (action === "add-new") setShowForm(true);
   };
 
   const handleInputChange = (e) => {
@@ -143,36 +131,47 @@ const Accounts = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!formData.name || !formData.mainContact || !formData.email) {
+      alert("Name, Main Contact, and Email are required fields");
+      return;
+    }
+
+    if (formData.mobile && !/^\d{10}$/.test(formData.mobile)) {
+      alert("Mobile number must be exactly 10 digits");
+      return;
+    }
+
     try {
-      await axios.post("http://localhost:5000/api/accounts", formData);
+      const payload = Object.fromEntries(
+        Object.entries(formData).filter(([_, v]) => v !== "")
+      );
+      await axios.post("http://localhost:5000/api/accounts", payload);
       setShowForm(false);
       setFormData({
-        accountId: "",
-        accountType: "",
-        accountName: "",
-        prospectRole: "",
-        website: "",
-        status: "",
-        salesOrganization: "",
-        buAssignment: "",
-        industryHorizontal: "",
-        vertical: "",
-        subVertical: "",
-        country: "",
-        postalCode: "",
+        name: "",
+        address: "",
         city: "",
+        accountType: "",
+        mainContact: "",
+        country: "India",
         state: "",
-        district: "",
-        street: "",
-        territory: "",
-        owner: "",
-        taxCountry: "",
-        taxNumberType: "",
-        taxNumber: ""
+        role: "",
+        mobile: "",
+        email: "",
+        industryCode: "",
+        buAssignment: "",
+        horizontal: "",
+        subVertical: "",
+        vertical: "",
+        valueAddedDepth: "",
+        status: "Active"
       });
-      fetchAccounts(); // Refresh the table
+      fetchAccounts();
     } catch (error) {
-      console.error("Error creating account:", error);
+      console.error("Error creating account:", error.response?.data || error.message);
+      const backendError = error.response?.data?.error || error.response?.data?.message || error.message;
+      alert(backendError || "Failed to create account");
     }
   };
 
@@ -210,208 +209,280 @@ const Accounts = () => {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedAccounts = sortedAccounts.slice(startIndex, startIndex + itemsPerPage);
 
-  const getStatusBadge = (status) => {
-    const variant = status === "Active" ? "default" : status === "Prospect" ? "secondary" : "outline";
-    return <Badge variant={variant}>{status}</Badge>;
+  // Inline edit state and handlers
+  const [editingId, setEditingId] = useState(null);
+  const [editData, setEditData] = useState({});
+  const startEdit = (row) => {
+    setEditingId(row._id || row.id);
+    setEditData({
+      name: row.name || "",
+      accountType: row.accountType || "",
+      role: row.role || "",
+      industryCode: row.industryCode || "",
+      buAssignment: row.buAssignment || "",
+      horizontal: row.horizontal || "",
+      subVertical: row.subVertical || "",
+      vertical: row.vertical || "",
+      valueAddedDepth: row.valueAddedDepth || "",
+    });
   };
+  const updateEdit = (field, value) => setEditData(prev => ({ ...prev, [field]: value }));
+  const saveEdit = async (row) => {
+    try {
+      const id = row._id;
+      if (!id) throw new Error('Missing _id for account update');
+      const payload = Object.fromEntries(
+        Object.entries(editData).filter(([_, v]) => v !== "" && v !== null && v !== undefined)
+      );
+      await axios.put(`http://localhost:5000/api/accounts/${id}`, payload);
+      setEditingId(null);
+      setEditData({});
+      fetchAccounts();
+    } catch (e) {
+      alert("Failed to update account: " + (e.response?.data?.message || e.message));
+    }
+  };
+  const cancelEdit = () => { setEditingId(null); setEditData({}); };
 
-  // ...existing code...
-if (showForm) {
-  return (
-    <div className="min-h-screen bg-background">
-      <div className="p-6">
-        <FormCard title="Account Information">
-          <form onSubmit={handleSubmit}>
-            <FormSection title="Account Information">
-              <div className="space-y-2">
-                <Label htmlFor="accountId">Account ID</Label>
-                <Input id="accountId" name="accountId" value={formData.accountId} onChange={handleInputChange} placeholder="Enter account ID" />
+  if (showForm) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="p-6">
+          <FormCard title="Account Information">
+            <form onSubmit={handleSubmit}>
+              <FormSection title="Basic Information">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Name <span className="text-red-500">*</span></Label>
+                  <Input id="name" name="name" value={formData.name} onChange={handleInputChange} required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="mainContact">Main Contact <span className="text-red-500">*</span></Label>
+                  <Input id="mainContact" name="mainContact" value={formData.mainContact} onChange={handleInputChange} required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email <span className="text-red-500">*</span></Label>
+                  <Input id="email" name="email" type="email" value={formData.email} onChange={handleInputChange} required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="mobile">Mobile (10 digits)</Label>
+                  <Input id="mobile" name="mobile" value={formData.mobile} onChange={handleInputChange} placeholder="10 digit number" maxLength={10} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="role">Role</Label>
+                  <Input id="role" name="role" value={formData.role} onChange={handleInputChange} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select value={formData.status} onValueChange={(val) => handleSelectChange("status", val)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Active">Active</SelectItem>
+                      <SelectItem value="Inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="accountType">Account Type</Label>
+                  <Select value={formData.accountType} onValueChange={(val) => handleSelectChange("accountType", val)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select account type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="IE-Direct">IE-Direct</SelectItem>
+                      <SelectItem value="IE-Indirect">IE-Indirect</SelectItem>
+                      <SelectItem value="IT-Direct">IT-Direct</SelectItem>
+                      <SelectItem value="IT-Indirect">IT-Indirect</SelectItem>
+                      <SelectItem value="RI-Mixed">RI-Mixed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </FormSection>
+
+              <FormSection title="Location Details">
+                <div className="space-y-2">
+                  <Label htmlFor="address">Address</Label>
+                  <Input id="address" name="address" value={formData.address} onChange={handleInputChange} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="country">Country</Label>
+                  <Select value={formData.country} onValueChange={(val) => handleSelectChange("country", val)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select country" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      {countries.map(country => (
+                        <SelectItem key={country} value={country}>{country}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="state">State</Label>
+                  {availableStates.length > 0 ? (
+                    <Select value={formData.state} onValueChange={(val) => handleSelectChange("state", val)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select state" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        {availableStates.map(state => (
+                          <SelectItem key={state} value={state}>{state}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input id="state" name="state" value={formData.state} onChange={handleInputChange} placeholder="Enter state" />
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="city">City</Label>
+                  <Input id="city" name="city" value={formData.city} onChange={handleInputChange} />
+                </div>
+              </FormSection>
+
+              <FormSection title="Business Details">
+                <div className="space-y-2">
+                  <Label htmlFor="industryCode">Industry Code</Label>
+                  <Input id="industryCode" name="industryCode" value={formData.industryCode} onChange={handleInputChange} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="buAssignment">BU Assignment</Label>
+                  <Select value={formData.buAssignment} onValueChange={(val) => handleSelectChange("buAssignment", val)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select BU assignment" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Industry">Industry</SelectItem>
+                      <SelectItem value="Energy & Power">Energy & Power</SelectItem>
+                      <SelectItem value="Cooling">Cooling</SelectItem>
+                      <SelectItem value="Service">Service</SelectItem>
+                      <SelectItem value="IT Direkt">IT Direkt</SelectItem>
+                      <SelectItem value="IT Hyperscale">IT Hyperscale</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="horizontal">Horizontal</Label>
+                  <Select value={formData.horizontal} onValueChange={(val) => handleSelectChange("horizontal", val)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select horizontal" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      <SelectItem value="End Customer / Operator">End Customer / Operator</SelectItem>
+                      <SelectItem value="System Integrator / EPC">System Integrator / EPC</SelectItem>
+                      <SelectItem value="Machine Builder / OEM">Machine Builder / OEM</SelectItem>
+                      <SelectItem value="Panel Builder (Automation)">Panel Builder (Automation)</SelectItem>
+                      <SelectItem value="Switchgear Manufacturer (Power)">Switchgear Manufacturer (Power)</SelectItem>
+                      <SelectItem value="Component / Hardware Manufacturer">Component / Hardware Manufacturer</SelectItem>
+                      <SelectItem value="Education (Universities)">Education (Universities)</SelectItem>
+                      <SelectItem value="Planner / Specifier">Planner / Specifier</SelectItem>
+                      <SelectItem value="Distribution">Distribution</SelectItem>
+                      <SelectItem value="Global Key Account">Global Key Account</SelectItem>
+                      <SelectItem value="Others">Others</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="vertical">Vertical</Label>
+                  <Select value={formData.vertical} onValueChange={(val) => handleSelectChange("vertical", val)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select vertical" />
+                    </SelectTrigger>
+                   <SelectContent className="max-h-[300px]">
+                        <SelectItem value="Industrial Automation">Industrial Automation</SelectItem>
+                        <SelectItem value="Building Technology">Building Technology</SelectItem>
+                        <SelectItem value="Automotive">Automotive</SelectItem>
+                        <SelectItem value="Food & Beverage">Food & Beverage</SelectItem>
+                        <SelectItem value="Infrastructure">Infrastructure</SelectItem>
+                        <SelectItem value="Logistics">Logistics</SelectItem>
+                        <SelectItem value="Maritime">Maritime</SelectItem>
+                        <SelectItem value="Rail">Rail</SelectItem>
+                        <SelectItem value="Aviation">Aviation</SelectItem>
+                        <SelectItem value="Process Industries">Process Industries</SelectItem>
+                        <SelectItem value="Energy Storage">Energy Storage</SelectItem>
+                        <SelectItem value="Power Grids">Power Grids</SelectItem>
+                        <SelectItem value="Power Generation">Power Generation</SelectItem>
+                        <SelectItem value="Government">Government</SelectItem>
+                        <SelectItem value="Finance">Finance</SelectItem>
+                        <SelectItem value="Retail">Retail</SelectItem>
+                        <SelectItem value="Healthcare">Healthcare</SelectItem>
+                        <SelectItem value="Education & Research">Education & Research</SelectItem>
+                        <SelectItem value="Gaming & Streaming">Gaming & Streaming</SelectItem>
+                        <SelectItem value="Colocation">Colocation</SelectItem>
+                        <SelectItem value="Hyperscale">Hyperscale</SelectItem>
+                        <SelectItem value="Charging Infrastructure">Charging Infrastructure</SelectItem>
+                     </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="subVertical">Sub Vertical</Label>
+                  <Select value={formData.subVertical} onValueChange={(val) => handleSelectChange("subVertical", val)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select sub vertical" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                        <SelectItem value="General">General</SelectItem>
+                        <SelectItem value="Manufacturer Parts">Manufacturer Parts</SelectItem>
+                        <SelectItem value="Battery Production">Battery Production</SelectItem>
+                        <SelectItem value="Agriculture">Agriculture</SelectItem>
+                        <SelectItem value="Food">Food</SelectItem>
+                        <SelectItem value="Beverages">Beverages</SelectItem>
+                        <SelectItem value="Telco Supplier">Telco Supplier</SelectItem>
+                        <SelectItem value="Telco Provider">Telco Provider</SelectItem>
+                        <SelectItem value="Water, Sewage">Water, Sewage</SelectItem>
+                        <SelectItem value="Tunnels, Bridges">Tunnels, Bridges</SelectItem>
+                        <SelectItem value="Shipyards">Shipyards</SelectItem>
+                        <SelectItem value="Ports">Ports</SelectItem>
+                        <SelectItem value="Airports">Airports</SelectItem>
+                        <SelectItem value="Air Traffic">Air Traffic</SelectItem>
+                        <SelectItem value="Aircrafts">Aircrafts</SelectItem>
+                        <SelectItem value="Pharma">Pharma</SelectItem>
+                        <SelectItem value="Chemical">Chemical</SelectItem>
+                        <SelectItem value="Woodworking">Woodworking</SelectItem>
+                        <SelectItem value="Pulp & Paper">Pulp & Paper</SelectItem>
+                        <SelectItem value="Semiconductor">Semiconductor</SelectItem>
+                        <SelectItem value="Metals">Metals</SelectItem>
+                        <SelectItem value="Mining">Mining</SelectItem>
+                        <SelectItem value="Oil & Gas - Downstream">Oil & Gas - Downstream</SelectItem>
+                        <SelectItem value="Oil & Gas - Upstream">Oil & Gas - Upstream</SelectItem>
+                        <SelectItem value="Battery">Battery</SelectItem>
+                        <SelectItem value="Hydrogen">Hydrogen</SelectItem>
+                        <SelectItem value="Backend">Backend</SelectItem>
+                        <SelectItem value="Frontend">Frontend</SelectItem>
+                        <SelectItem value="Transmission">Transmission</SelectItem>
+                        <SelectItem value="Distribution">Distribution</SelectItem>
+                        <SelectItem value="Solar">Solar</SelectItem>
+                        <SelectItem value="Wind">Wind</SelectItem>
+                        <SelectItem value="Others">Others</SelectItem>
+                        <SelectItem value="Manufacturer Vehicles, Trucks, Two-wheeler">Manufacturer Vehicles, Trucks, Two-wheeler</SelectItem>
+                        <SelectItem value="Oil & Gas - Midstream">Oil & Gas - Midstream</SelectItem>
+                        <SelectItem value="Defence">Defence</SelectItem>
+                        <SelectItem value="Provider / Operator">Provider / Operator</SelectItem>
+                        <SelectItem value="Supplier">Supplier</SelectItem>
+                        <SelectItem value="Hydro">Hydro</SelectItem>
+                        <SelectItem value="Nuclear Power">Nuclear Power</SelectItem>
+                        <SelectItem value="Coal, Oil, Gas">Coal, Oil, Gas</SelectItem>
+                      </SelectContent>
+
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="valueAddedDepth">Value Added Depth</Label>
+                  <Input id="valueAddedDepth" name="valueAddedDepth" value={formData.valueAddedDepth} onChange={handleInputChange} />
+                </div>
+              </FormSection>
+
+              <div className="flex justify-end space-x-4 pt-6 border-t border-border">
+                <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
+                <Button type="submit">Save Account</Button>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="accountType">Account Type</Label>
-                <Select value={formData.accountType} onValueChange={(val) => handleSelectChange("accountType", val)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select account type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Customer">Customer</SelectItem>
-                    <SelectItem value="Prospect">Prospect</SelectItem>
-                    <SelectItem value="Partner">Partner</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="accountName">Account Name</Label>
-                <Input id="accountName" name="accountName" value={formData.accountName} onChange={handleInputChange} placeholder="Enter account name" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="prospectRole">Prospect Role</Label>
-                <Select value={formData.prospectRole} onValueChange={(val) => handleSelectChange("prospectRole", val)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select prospect role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Decision Maker">Decision Maker</SelectItem>
-                    <SelectItem value="Influencer">Influencer</SelectItem>
-                    <SelectItem value="User">User</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="website">Website</Label>
-                <Input id="website" name="website" value={formData.website} onChange={handleInputChange} placeholder="Enter website URL" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <Select value={formData.status} onValueChange={(val) => handleSelectChange("status", val)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Active">Active</SelectItem>
-                    <SelectItem value="Prospect">Prospect</SelectItem>
-                    <SelectItem value="Inactive">Inactive</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </FormSection>
-            <FormSection title="Sales & Business Details">
-              <div className="space-y-2">
-                <Label htmlFor="salesOrganization">Sales Organization</Label>
-                <Input id="salesOrganization" name="salesOrganization" value={formData.salesOrganization} onChange={handleInputChange} placeholder="Enter sales organization" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="buAssignment">BU Assignment</Label>
-                <Input id="buAssignment" name="buAssignment" value={formData.buAssignment} onChange={handleInputChange} placeholder="Enter BU assignment" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="industryHorizontal">Industry Categories (Horizontal)</Label>
-                <Select value={formData.industryHorizontal} onValueChange={(val) => handleSelectChange("industryHorizontal", val)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select horizontal category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Technology">Technology</SelectItem>
-                    <SelectItem value="Healthcare">Healthcare</SelectItem>
-                    <SelectItem value="Finance">Finance</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="vertical">Vertical</Label>
-                <Select value={formData.vertical} onValueChange={(val) => handleSelectChange("vertical", val)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select vertical category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Software">Software</SelectItem>
-                    <SelectItem value="Hardware">Hardware</SelectItem>
-                    <SelectItem value="Services">Services</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="subVertical">Sub Vertical</Label>
-                <Select value={formData.subVertical} onValueChange={(val) => handleSelectChange("subVertical", val)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select sub vertical" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Enterprise Software">Enterprise Software</SelectItem>
-                    <SelectItem value="SMB">SMB</SelectItem>
-                    <SelectItem value="Startup">Startup</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </FormSection>
-            <FormSection title="Location Details">
-              <div className="space-y-2">
-                <Label htmlFor="country">Country/Region</Label>
-                <Select value={formData.country} onValueChange={(val) => handleSelectChange("country", val)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select country/region" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="United States">United States</SelectItem>
-                    <SelectItem value="United Kingdom">United Kingdom</SelectItem>
-                    <SelectItem value="Canada">Canada</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="postalCode">Postal Code</Label>
-                <Input id="postalCode" name="postalCode" value={formData.postalCode} onChange={handleInputChange} placeholder="Enter postal code" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="city">City</Label>
-                <Input id="city" name="city" value={formData.city} onChange={handleInputChange} placeholder="Enter city" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="state">State</Label>
-                <Input id="state" name="state" value={formData.state} onChange={handleInputChange} placeholder="Enter state" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="district">District</Label>
-                <Input id="district" name="district" value={formData.district} onChange={handleInputChange} placeholder="Enter district" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="street">Street</Label>
-                <Input id="street" name="street" value={formData.street} onChange={handleInputChange} placeholder="Enter street address" />
-              </div>
-            </FormSection>
-            <FormSection title="Territory Management">
-              <div className="space-y-2">
-                <Label htmlFor="territory">Territory</Label>
-                <Input id="territory" name="territory" value={formData.territory} onChange={handleInputChange} placeholder="Enter territory" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="owner">Owner</Label>
-                <Input id="owner" name="owner" value={formData.owner} onChange={handleInputChange} placeholder="Enter owner" />
-              </div>
-            </FormSection>
-            <FormSection title="Tax Information">
-              <div className="space-y-2">
-                <Label htmlFor="taxCountry">Tax Country/Region</Label>
-                <Select value={formData.taxCountry} onValueChange={(val) => handleSelectChange("taxCountry", val)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select tax country/region" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="United States">United States</SelectItem>
-                    <SelectItem value="United Kingdom">United Kingdom</SelectItem>
-                    <SelectItem value="Canada">Canada</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="taxNumberType">Tax Number Type</Label>
-                <Select value={formData.taxNumberType} onValueChange={(val) => handleSelectChange("taxNumberType", val)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select tax number type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="EIN">EIN</SelectItem>
-                    <SelectItem value="VAT">VAT</SelectItem>
-                    <SelectItem value="GSTIN">GSTIN</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="taxNumber">Tax Number</Label>
-                <Input id="taxNumber" name="taxNumber" value={formData.taxNumber} onChange={handleInputChange} placeholder="Enter tax number" />
-              </div>
-            </FormSection>
-            <div className="flex justify-end space-x-4 pt-6 border-t border-border">
-              <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
-              <Button type="submit">Save Account</Button>
-            </div>
-          </form>
-        </FormCard>
+            </form>
+          </FormCard>
+        </div>
       </div>
-    </div>
-  );
-}
-// ...existing code...
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -429,65 +500,205 @@ if (showForm) {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="overflow-auto max-h-[600px]">
-              <Table>
-                <TableHeader className="sticky top-0 bg-background">
-                  <TableRow>
-                    {isVisible("accountId") && <TableHead onClick={() => handleSort("accountId")}>Account ID</TableHead>}
-                    {isVisible("accountType") && <TableHead onClick={() => handleSort("accountType")}>Type</TableHead>}
-                    {isVisible("accountName") && <TableHead onClick={() => handleSort("accountName")}>Account Name</TableHead>}
-                    {isVisible("prospectRole") && <TableHead onClick={() => handleSort("prospectRole")}>Prospect Role</TableHead>}
-                    {isVisible("website") && <TableHead onClick={() => handleSort("website")}>Website</TableHead>}
-                    {isVisible("status") && <TableHead onClick={() => handleSort("status")}>Status</TableHead>}
-                    {isVisible("salesOrganization") && <TableHead onClick={() => handleSort("salesOrganization")}>Sales Org</TableHead>}
-                    {isVisible("buAssignment") && <TableHead onClick={() => handleSort("buAssignment")}>BU Assignment</TableHead>}
-                    {isVisible("industryHorizontal") && <TableHead onClick={() => handleSort("industryHorizontal")}>Industry Horizontal</TableHead>}
-                    {isVisible("vertical") && <TableHead onClick={() => handleSort("vertical")}>Vertical</TableHead>}
-                    {isVisible("subVertical") && <TableHead onClick={() => handleSort("subVertical")}>Sub Vertical</TableHead>}
-                    {isVisible("country") && <TableHead onClick={() => handleSort("country")}>Country</TableHead>}
-                    {isVisible("postalCode") && <TableHead onClick={() => handleSort("postalCode")}>Postal Code</TableHead>}
-                    {isVisible("city") && <TableHead onClick={() => handleSort("city")}>City</TableHead>}
-                    {isVisible("state") && <TableHead onClick={() => handleSort("state")}>State</TableHead>}
-                    {isVisible("district") && <TableHead onClick={() => handleSort("district")}>District</TableHead>}
-                    {isVisible("street") && <TableHead onClick={() => handleSort("street")}>Street</TableHead>}
-                    {isVisible("territory") && <TableHead onClick={() => handleSort("territory")}>Territory</TableHead>}
-                    {isVisible("owner") && <TableHead onClick={() => handleSort("owner")}>Owner</TableHead>}
-                    {isVisible("taxCountry") && <TableHead onClick={() => handleSort("taxCountry")}>Tax Country</TableHead>}
-                    {isVisible("taxNumberType") && <TableHead onClick={() => handleSort("taxNumberType")}>Tax Number Type</TableHead>}
-                    {isVisible("taxNumber") && <TableHead onClick={() => handleSort("taxNumber")}>Tax Number</TableHead>}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paginatedAccounts.map((account) => (
-                    <TableRow key={account._id} className="cursor-pointer hover:bg-muted/50">
-                        {isVisible("accountId") && <TableCell>{account.accountId}</TableCell>}
-                        {isVisible("accountType") && <TableCell>{account.accountType}</TableCell>}
-                        {isVisible("accountName") && <TableCell>{account.accountName}</TableCell>}
-                        {isVisible("prospectRole") && <TableCell>{account.prospectRole}</TableCell>}
-                        {isVisible("website") && <TableCell>{account.website}</TableCell>}
-                        {isVisible("status") && <TableCell>{getStatusBadge(account.status)}</TableCell>}
-                        {isVisible("salesOrganization") && <TableCell>{account.salesOrganization}</TableCell>}
-                        {isVisible("buAssignment") && <TableCell>{account.buAssignment}</TableCell>}
-                        {isVisible("industryHorizontal") && <TableCell>{account.industryHorizontal}</TableCell>}
-                        {isVisible("vertical") && <TableCell>{account.vertical}</TableCell>}
-                        {isVisible("subVertical") && <TableCell>{account.subVertical}</TableCell>}
-                        {isVisible("country") && <TableCell>{account.country}</TableCell>}
-                        {isVisible("postalCode") && <TableCell>{account.postalCode}</TableCell>}
-                        {isVisible("city") && <TableCell>{account.city}</TableCell>}
-                        {isVisible("state") && <TableCell>{account.state}</TableCell>}
-                        {isVisible("district") && <TableCell>{account.district}</TableCell>}
-                        {isVisible("street") && <TableCell>{account.street}</TableCell>}
-                        {isVisible("territory") && <TableCell>{account.territory}</TableCell>}
-                        {isVisible("owner") && <TableCell>{account.owner}</TableCell>}
-                        {isVisible("taxCountry") && <TableCell>{account.taxCountry}</TableCell>}
-                        {isVisible("taxNumberType") && <TableCell>{account.taxNumberType}</TableCell>}
-                        {isVisible("taxNumber") && <TableCell>{account.taxNumber}</TableCell>}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+            <div className="overflow-auto max-h-[600px] rounded-md border border-border">
+              <ResizableTable
+                columns={[
+                  { key: 'accountId', label: 'Account ID', defaultWidth: 100 },
+                  { key: 'name', label: 'Name', defaultWidth: 160 },
+                  { key: 'accountType', label: 'Account Type', defaultWidth: 140 },
+                  { key: 'mainContact', label: 'Main Contact', defaultWidth: 160 },
+                  { key: 'status', label: 'Status', defaultWidth: 120 },
+                  { key: 'address', label: 'Address', defaultWidth: 200, minWidth: 120 },
+                  { key: 'city', label: 'City', defaultWidth: 120 },
+                  { key: 'country', label: 'Country', defaultWidth: 120 },
+                  { key: 'state', label: 'State', defaultWidth: 120 },
+                  { key: 'role', label: 'Role', defaultWidth: 140 },
+                  { key: 'mobile', label: 'Mobile', defaultWidth: 120 },
+                  { key: 'email', label: 'Email', defaultWidth: 200, minWidth: 120 },
+                  { key: 'industryCode', label: 'Industry Code', defaultWidth: 140 },
+                  { key: 'buAssignment', label: 'BU Assignment', defaultWidth: 160 },
+                  { key: 'horizontal', label: 'Horizontal', defaultWidth: 180 },
+                  { key: 'subVertical', label: 'Sub Vertical', defaultWidth: 180 },
+                  { key: 'vertical', label: 'Vertical', defaultWidth: 180 },
+                  { key: 'valueAddedDepth', label: 'Value Added Depth', defaultWidth: 180 },
+                ]}
+                data={paginatedAccounts}
+                visible={visibleColumns}
+                onSort={handleSort}
+                renderCell={(row, key) => {
+                  if (key === 'name') {
+                    return editingId === (row._id || row.id) ? (
+                      <Input value={editData.name} onChange={(e) => updateEdit('name', e.target.value)} />
+                    ) : row.name;
+                  }
+                  if (key === 'accountType') {
+                    return editingId === (row._id || row.id) ? (
+                      <Select value={editData.accountType} onValueChange={(v) => updateEdit('accountType', v)}>
+                        <SelectTrigger><SelectValue placeholder="Select account type" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="IE-Direct">IE-Direct</SelectItem>
+                          <SelectItem value="IE-Indirect">IE-Indirect</SelectItem>
+                          <SelectItem value="IT-Direct">IT-Direct</SelectItem>
+                          <SelectItem value="IT-Indirect">IT-Indirect</SelectItem>
+                          <SelectItem value="RI-Mixed">RI-Mixed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : row.accountType;
+                  }
+                  if (key === 'status') {
+                    return <Badge variant={row.status === 'Active' ? 'default' : 'secondary'}>{row.status}</Badge>;
+                  }
+                  if (key === 'role') {
+                    return editingId === (row._id || row.id) ? (
+                      <Input value={editData.role} onChange={(e) => updateEdit('role', e.target.value)} />
+                    ) : row.role;
+                  }
+                  if (key === 'industryCode') {
+                    return editingId === (row._id || row.id) ? (
+                      <Input value={editData.industryCode} onChange={(e) => updateEdit('industryCode', e.target.value)} />
+                    ) : row.industryCode;
+                  }
+                  if (key === 'buAssignment') {
+                    return editingId === (row._id || row.id) ? (
+                      <Select value={editData.buAssignment} onValueChange={(v) => updateEdit('buAssignment', v)}>
+                        <SelectTrigger><SelectValue placeholder="Select BU assignment" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Industry">Industry</SelectItem>
+                          <SelectItem value="Energy & Power">Energy & Power</SelectItem>
+                          <SelectItem value="Cooling">Cooling</SelectItem>
+                          <SelectItem value="Service">Service</SelectItem>
+                          <SelectItem value="IT Direkt">IT Direkt</SelectItem>
+                          <SelectItem value="IT Hyperscale">IT Hyperscale</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : row.buAssignment;
+                  }
+                  if (key === 'horizontal') {
+                    return editingId === (row._id || row.id) ? (
+                      <Select value={editData.horizontal} onValueChange={(v) => updateEdit('horizontal', v)}>
+                        <SelectTrigger><SelectValue placeholder="Select horizontal" /></SelectTrigger>
+                        <SelectContent className="max-h-[300px]">
+                          <SelectItem value="End Customer / Operator">End Customer / Operator</SelectItem>
+                          <SelectItem value="System Integrator / EPC">System Integrator / EPC</SelectItem>
+                          <SelectItem value="Machine Builder / OEM">Machine Builder / OEM</SelectItem>
+                          <SelectItem value="Panel Builder (Automation)">Panel Builder (Automation)</SelectItem>
+                          <SelectItem value="Switchgear Manufacturer (Power)">Switchgear Manufacturer (Power)</SelectItem>
+                          <SelectItem value="Component / Hardware Manufacturer">Component / Hardware Manufacturer</SelectItem>
+                          <SelectItem value="Education (Universities)">Education (Universities)</SelectItem>
+                          <SelectItem value="Planner / Specifier">Planner / Specifier</SelectItem>
+                          <SelectItem value="Distribution">Distribution</SelectItem>
+                          <SelectItem value="Global Key Account">Global Key Account</SelectItem>
+                          <SelectItem value="Others">Others</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : row.horizontal;
+                  }
+                  if (key === 'subVertical') {
+                    return editingId === (row._id || row.id) ? (
+                      <Select value={editData.subVertical} onValueChange={(v) => updateEdit('subVertical', v)}>
+                        <SelectTrigger><SelectValue placeholder="Select sub vertical" /></SelectTrigger>
+                        <SelectContent className="max-h-[300px]">
+                          <SelectItem value="General">General</SelectItem>
+                          <SelectItem value="Manufacturer Parts">Manufacturer Parts</SelectItem>
+                          <SelectItem value="Battery Production">Battery Production</SelectItem>
+                          <SelectItem value="Agriculture">Agriculture</SelectItem>
+                          <SelectItem value="Food">Food</SelectItem>
+                          <SelectItem value="Beverages">Beverages</SelectItem>
+                          <SelectItem value="Telco Supplier">Telco Supplier</SelectItem>
+                          <SelectItem value="Telco Provider">Telco Provider</SelectItem>
+                          <SelectItem value="Water, Sewage">Water, Sewage</SelectItem>
+                          <SelectItem value="Tunnels, Bridges">Tunnels, Bridges</SelectItem>
+                          <SelectItem value="Shipyards">Shipyards</SelectItem>
+                          <SelectItem value="Ports">Ports</SelectItem>
+                          <SelectItem value="Airports">Airports</SelectItem>
+                          <SelectItem value="Air Traffic">Air Traffic</SelectItem>
+                          <SelectItem value="Aircrafts">Aircrafts</SelectItem>
+                          <SelectItem value="Pharma">Pharma</SelectItem>
+                          <SelectItem value="Chemical">Chemical</SelectItem>
+                          <SelectItem value="Woodworking">Woodworking</SelectItem>
+                          <SelectItem value="Pulp & Paper">Pulp & Paper</SelectItem>
+                          <SelectItem value="Semiconductor">Semiconductor</SelectItem>
+                          <SelectItem value="Metals">Metals</SelectItem>
+                          <SelectItem value="Mining">Mining</SelectItem>
+                          <SelectItem value="Oil & Gas - Downstream">Oil & Gas - Downstream</SelectItem>
+                          <SelectItem value="Oil & Gas - Upstream">Oil & Gas - Upstream</SelectItem>
+                          <SelectItem value="Battery">Battery</SelectItem>
+                          <SelectItem value="Hydrogen">Hydrogen</SelectItem>
+                          <SelectItem value="Backend">Backend</SelectItem>
+                          <SelectItem value="Frontend">Frontend</SelectItem>
+                          <SelectItem value="Transmission">Transmission</SelectItem>
+                          <SelectItem value="Distribution">Distribution</SelectItem>
+                          <SelectItem value="Solar">Solar</SelectItem>
+                          <SelectItem value="Wind">Wind</SelectItem>
+                          <SelectItem value="Others">Others</SelectItem>
+                          <SelectItem value="Manufacturer Vehicles, Trucks, Two-wheeler">Manufacturer Vehicles, Trucks, Two-wheeler</SelectItem>
+                          <SelectItem value="Oil & Gas - Midstream">Oil & Gas - Midstream</SelectItem>
+                          <SelectItem value="Defence">Defence</SelectItem>
+                          <SelectItem value="Provider / Operator">Provider / Operator</SelectItem>
+                          <SelectItem value="Supplier">Supplier</SelectItem>
+                          <SelectItem value="Hydro">Hydro</SelectItem>
+                          <SelectItem value="Nuclear Power">Nuclear Power</SelectItem>
+                          <SelectItem value="Coal, Oil, Gas">Coal, Oil, Gas</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : row.subVertical;
+                  }
+                  if (key === 'vertical') {
+                    return editingId === (row._id || row.id) ? (
+                      <Select value={editData.vertical} onValueChange={(v) => updateEdit('vertical', v)}>
+                        <SelectTrigger><SelectValue placeholder="Select vertical" /></SelectTrigger>
+                        <SelectContent className="max-h-[300px]">
+                          <SelectItem value="Industrial Automation">Industrial Automation</SelectItem>
+                          <SelectItem value="Building Technology">Building Technology</SelectItem>
+                          <SelectItem value="Automotive">Automotive</SelectItem>
+                          <SelectItem value="Food & Beverage">Food & Beverage</SelectItem>
+                          <SelectItem value="Infrastructure">Infrastructure</SelectItem>
+                          <SelectItem value="Logistics">Logistics</SelectItem>
+                          <SelectItem value="Maritime">Maritime</SelectItem>
+                          <SelectItem value="Rail">Rail</SelectItem>
+                          <SelectItem value="Aviation">Aviation</SelectItem>
+                          <SelectItem value="Process Industries">Process Industries</SelectItem>
+                          <SelectItem value="Energy Storage">Energy Storage</SelectItem>
+                          <SelectItem value="Power Grids">Power Grids</SelectItem>
+                          <SelectItem value="Power Generation">Power Generation</SelectItem>
+                          <SelectItem value="Government">Government</SelectItem>
+                          <SelectItem value="Finance">Finance</SelectItem>
+                          <SelectItem value="Retail">Retail</SelectItem>
+                          <SelectItem value="Healthcare">Healthcare</SelectItem>
+                          <SelectItem value="Education & Research">Education & Research</SelectItem>
+                          <SelectItem value="Gaming & Streaming">Gaming & Streaming</SelectItem>
+                          <SelectItem value="Colocation">Colocation</SelectItem>
+                          <SelectItem value="Hyperscale">Hyperscale</SelectItem>
+                          <SelectItem value="Charging Infrastructure">Charging Infrastructure</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : row.vertical;
+                  }
+                  if (key === 'valueAddedDepth') {
+                    return editingId === (row._id || row.id) ? (
+                      <Input value={editData.valueAddedDepth} onChange={(e) => updateEdit('valueAddedDepth', e.target.value)} />
+                    ) : row.valueAddedDepth;
+                  }
+                  return row[key];
+                }}
+                actions={{
+                  header: 'Actions',
+                  cell: (account) => (
+                    editingId === (account._id || account.id) ? (
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={() => saveEdit(account)}>Save</Button>
+                        <Button size="sm" variant="outline" onClick={cancelEdit}>Cancel</Button>
+                      </div>
+                    ) : (
+                      <Button size="icon" variant="outline" onClick={() => startEdit(account)} aria-label="Edit account">
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    )
+                  )
+                }}
+                minTableWidth={1000}
+              />
             </div>
-            {/* Pagination */}
             <div className="flex items-center justify-between mt-4">
               <div className="text-sm text-muted-foreground">
                 Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, sortedAccounts.length)} of {sortedAccounts.length} entries
@@ -506,7 +717,6 @@ if (showForm) {
         </Card>
       </div>
 
-      {/* Sort Dialog */}
       <Dialog open={showSortDialog} onOpenChange={setShowSortDialog}>
         <DialogContent>
           <DialogHeader>
@@ -515,24 +725,24 @@ if (showForm) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Field</Label>
-              <ShadSelect value={sortField} onValueChange={(v) => setSortField(v)}>
-                <ShadSelectTrigger><ShadSelectValue placeholder="Select field" /></ShadSelectTrigger>
-                <ShadSelectContent>
+              <Select value={sortField} onValueChange={(v) => setSortField(v)}>
+                <SelectTrigger><SelectValue placeholder="Select field" /></SelectTrigger>
+                <SelectContent>
                   {allColumns.map(c => (
-                    <ShadSelectItem key={c.key} value={c.key}>{c.label}</ShadSelectItem>
+                    <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>
                   ))}
-                </ShadSelectContent>
-              </ShadSelect>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Direction</Label>
-              <ShadSelect value={sortDirection} onValueChange={(v) => setSortDirection(v)}>
-                <ShadSelectTrigger><ShadSelectValue placeholder="Select direction" /></ShadSelectTrigger>
-                <ShadSelectContent>
-                  <ShadSelectItem value="asc">Ascending</ShadSelectItem>
-                  <ShadSelectItem value="desc">Descending</ShadSelectItem>
-                </ShadSelectContent>
-              </ShadSelect>
+              <Select value={sortDirection} onValueChange={(v) => setSortDirection(v)}>
+                <SelectTrigger><SelectValue placeholder="Select direction" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="asc">Ascending</SelectItem>
+                  <SelectItem value="desc">Descending</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-4">
@@ -542,7 +752,6 @@ if (showForm) {
         </DialogContent>
       </Dialog>
 
-      {/* Manage Columns Dialog */}
       <Dialog open={showColumnsDialog} onOpenChange={setShowColumnsDialog}>
         <DialogContent>
           <DialogHeader>
