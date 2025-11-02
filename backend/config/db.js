@@ -4,7 +4,7 @@ const mongoose = require("mongoose");
 const connectDB = async () => {
   try {
     // Use Atlas connection string directly (no .env)
-    const uri = "mongodb+srv://ijajmulla:Eajaj09@crmcluster.rgvkk3m.mongodb.net/CRM_Tool?retryWrites=true&w=majority";
+    const uri = "mongodb+srv://ijajmulla:<password>@crmcluster.rgvkk3m.mongodb.net/CRM_Tool?retryWrites=true&w=majority";
     await mongoose.connect(uri);
     console.log("MongoDB Connected Successfully TO ATLAS!");
   } catch (error) {
