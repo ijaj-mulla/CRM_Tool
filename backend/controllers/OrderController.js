@@ -17,13 +17,6 @@ const createOrders = async (req, res) => {
     };
     const order = new orderSchema(payload);
     const result = await order.save();
-    // Trigger propagation if status already Completed/Cancelled
-    if (result && typeof result.status === 'string') {
-      const st = String(result.status);
-      if (st === 'Completed' || st === 'Cancelled') {
-        try { await propagateOrderStatus(result.toObject ? result.toObject() : result); } catch (_) {}
-      }
-    }
     if (result) return res.status(201).json(result);
     return res.status(400).json('Cannot create Order');
   } catch (err) {
@@ -71,12 +64,6 @@ const updateOrder = async (req, res) => {
     const prev = await orderSchema.findById(id).lean();
     const updated = await orderSchema.findByIdAndUpdate(id, update, { new: true });
     if (!updated) return res.status(404).json('Order not found');
-    // Trigger propagation when status changes to Completed or Cancelled
-    const newStatus = String(updated.status || '');
-    const prevStatus = String(prev?.status || '');
-    if ((newStatus === 'Completed' || newStatus === 'Cancelled') && newStatus !== prevStatus) {
-      try { await propagateOrderStatus(updated.toObject ? updated.toObject() : updated); } catch (_) {}
-    }
     return res.json(updated);
   } catch (err) {
     console.log(err);
