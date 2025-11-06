@@ -38,49 +38,9 @@ const updateLead = async (req, res) => {
 
     const updated = await Lead.findByIdAndUpdate(id, req.body, { new: true });
     if (!updated) return res.status(404).json('Lead not found');
-
-    const becameQualified = prevStatus !== 'qualified' && bodyStatus === 'qualified';
-    const notLinked = !updated.linkedOpportunityId;
-
-    if (becameQualified && notLinked) {
-      try {
-        const missing = ['account','contact','owner'].filter(f => !updated[f]);
-        if (missing.length > 0) {
-          return res.json(updated);
-        }
-
-        const allowedCategories = ['Brochure request','Prospect for Consulting','Prospect for Product Sales','Prospect for Service','Prospect for Training','Value Chain'];
-        const oppPayload = {
-          name: updated.name,
-          account: updated.account,
-          contact: updated.contact,
-          owner: updated.owner,
-          salesOrganization: 'test',
-          salesPhase: 'qualification',
-          startDate: updated.startDate,
-          closeDate: updated.endDate,
-          source: updated.source
-        };
-        if (allowedCategories.includes(updated.category)) {
-          oppPayload.category = updated.category;
-        }
-
-        const opp = new Opportunity(oppPayload);
-        const createdOpp = await opp.save();
-
-        if (createdOpp && createdOpp.opportunityId) {
-          updated.linkedOpportunityId = createdOpp.opportunityId;
-          await updated.save();
-          emitAutomation('success', '✅ Lead converted to Opportunity successfully', {
-            leadId: updated.leadId,
-            opportunityId: createdOpp.opportunityId,
-          });
-        }
-      } catch (createErr) {
-        console.log('Opportunity creation from Lead failed:', createErr);
-      }
-    }
-
+    // Note: Opportunity creation for qualified leads is handled centrally
+    // by automation/watchers (change streams or Mongoose post hooks fallback).
+    // This prevents duplicate creations from concurrent controller + watcher paths.
     return res.json(updated);
   } catch (err) {
     console.log(err);
