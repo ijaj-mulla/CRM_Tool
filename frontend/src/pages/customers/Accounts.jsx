@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { API_PREFIX } from "@/config/api";
 import { FormCard } from "@/components/forms/FormCard";
 import { FormSection } from "@/components/forms/FormSection";
 import { Input } from "@/components/ui/input";
@@ -113,7 +114,7 @@ const Accounts = () => {
 
   const fetchAccounts = async () => {
     try {
-      const response = await axios.get("http://localhost:5000/api/accounts");
+      const response = await axios.get(`${API_PREFIX}/accounts`);
       setAccounts(response.data);
     } catch (error) {
       console.error("Error fetching accounts:", error);
@@ -146,7 +147,7 @@ const Accounts = () => {
       const payload = Object.fromEntries(
         Object.entries(formData).filter(([_, v]) => v !== "")
       );
-      await axios.post("http://localhost:5000/api/accounts", payload);
+      await axios.post(`${API_PREFIX}/accounts`, payload);
       setShowForm(false);
       setFormData({
         name: "",
@@ -234,7 +235,7 @@ const Accounts = () => {
       const payload = Object.fromEntries(
         Object.entries(editData).filter(([_, v]) => v !== "" && v !== null && v !== undefined)
       );
-      await axios.put(`http://localhost:5000/api/accounts/${id}`, payload);
+      await axios.put(`${API_PREFIX}/accounts/${id}`, payload);
       setEditingId(null);
       setEditData({});
       fetchAccounts();

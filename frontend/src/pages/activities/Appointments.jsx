@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { API_PREFIX } from "@/config/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import ResizableTable from "@/components/table/ResizableTable";
@@ -101,8 +102,8 @@ const Appointments = () => {
     const loadRefs = async () => {
       try {
         const [accRes, conRes] = await Promise.all([
-          axios.get("http://localhost:5000/api/accounts"),
-          axios.get("http://localhost:5000/api/contacts"),
+          axios.get(`${API_PREFIX}/accounts`),
+          axios.get(`${API_PREFIX}/contacts`),
         ]);
         setAccountsCache(accRes.data || []);
         setContactsCache(conRes.data || []);
@@ -163,7 +164,7 @@ const Appointments = () => {
 
   const fetchAppointments = async () => {
     try {
-      const { data } = await axios.get("http://localhost:5000/api/appointments");
+      const { data } = await axios.get(`${API_PREFIX}/appointments`);
       setAppointments(data);
     } catch (err) {
       console.error("Error fetching appointments:", err.response?.data || err.message);
@@ -206,7 +207,7 @@ const Appointments = () => {
       if (!payload.subject) { alert("Subject is required"); return; }
       if (!payload.owner) { alert("Owner is required"); return; }
 
-      await axios.post("http://localhost:5000/api/appointments", payload);
+      await axios.post(`${API_PREFIX}/appointments`, payload);
       setShowForm(false);
       setFormData({ ...DEFAULTS });
       fetchAppointments();

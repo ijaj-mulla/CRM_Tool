@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { API_PREFIX } from "@/config/api";
 import { FormCard } from "@/components/forms/FormCard";
 import { FormSection } from "@/components/forms/FormSection";
 import { Input } from "@/components/ui/input";
@@ -76,7 +77,7 @@ const SalesOrders = () => {
 
   const fetchOrders = async () => {
     try {
-      const response = await axios.get("http://localhost:5000/api/orders");
+      const response = await axios.get(`${API_PREFIX}/orders`);
       setOrders(response.data);
     } catch (error) {
       console.error("Error fetching orders:", error.response?.data || error.message);
@@ -108,7 +109,7 @@ const SalesOrders = () => {
         creationDate: formData.creationDate ? new Date(formData.creationDate) : undefined,
         amount: formData.amount !== "" ? Number(formData.amount) : undefined,
       };
-      await axios.post("http://localhost:5000/api/orders", submitData);
+      await axios.post(`${API_PREFIX}/orders`, submitData);
       setShowForm(false);
       setFormData({
         orderId: "",
@@ -185,7 +186,7 @@ const SalesOrders = () => {
     const t = setTimeout(async () => {
       if (!accountQuery) { setAccountResults([]); return; }
       try {
-        const res = await axios.get(`http://localhost:5000/api/orders/search/account?q=${encodeURIComponent(accountQuery)}`);
+        const res = await axios.get(`${API_PREFIX}/orders/search/account?q=${encodeURIComponent(accountQuery)}`);
         setAccountResults(res.data || []);
       } catch {}
     }, 300);
@@ -196,7 +197,7 @@ const SalesOrders = () => {
     const t = setTimeout(async () => {
       if (!contactQuery) { setContactResults([]); return; }
       try {
-        const res = await axios.get(`http://localhost:5000/api/orders/search/contact?q=${encodeURIComponent(contactQuery)}`);
+        const res = await axios.get(`${API_PREFIX}/orders/search/contact?q=${encodeURIComponent(contactQuery)}`);
         setContactResults(res.data || []);
       } catch {}
     }, 300);
@@ -231,7 +232,7 @@ const SalesOrders = () => {
   const saveEdit = async (row) => {
     try {
       const id = row._id || row.id;
-      await axios.put(`http://localhost:5000/api/orders/${id}`, {
+      await axios.put(`${API_PREFIX}/orders/${id}`, {
         deliveryStatus: editData.deliveryStatus,
         document_type: editData.document_type,
         amount: editData.amount === '' || editData.amount === undefined ? undefined : Number(editData.amount),

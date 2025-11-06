@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { API_PREFIX } from "@/config/api";
 import { FormCard } from "@/components/forms/FormCard";
 import { FormSection } from "@/components/forms/FormSection";
 import { Input } from "@/components/ui/input";
@@ -96,7 +97,7 @@ const Leads = () => {
 
   const fetchLeads = async () => {
     try {
-      const response = await axios.get("http://localhost:5000/api/leads");
+      const response = await axios.get(`${API_PREFIX}/leads`);
       setLeads(response.data);
     } catch (error) {
       console.error("Error fetching leads:", error.response?.data || error.message);
@@ -132,7 +133,7 @@ const Leads = () => {
     const t = setTimeout(async () => {
       if (!contactQuery) { setContactResults([]); return; }
       try {
-        const url = `http://localhost:5000/api/leads/search/contact?q=${encodeURIComponent(contactQuery)}${accountQuery ? `&account=${encodeURIComponent(accountQuery)}` : ''}`;
+        const url = `${API_PREFIX}/leads/search/contact?q=${encodeURIComponent(contactQuery)}${accountQuery ? `&account=${encodeURIComponent(accountQuery)}` : ''}`;
         const res = await axios.get(url);
         setContactResults(res.data || []);
       } catch {}
@@ -144,7 +145,7 @@ const Leads = () => {
     const t = setTimeout(async () => {
       if (!accountQuery) { setAccountResults([]); return; }
       try {
-        const res = await axios.get(`http://localhost:5000/api/leads/search/account?q=${encodeURIComponent(accountQuery)}`);
+        const res = await axios.get(`${API_PREFIX}/leads/search/account?q=${encodeURIComponent(accountQuery)}`);
         setAccountResults(res.data || []);
       } catch {}
     }, 300);
@@ -217,14 +218,14 @@ const Leads = () => {
             Object.entries(accountPayloadRaw).filter(([_, v]) => v !== "" && v !== undefined)
           );
           try {
-            await axios.post("http://localhost:5000/api/accounts", accountPayload);
+            await axios.post(`${API_PREFIX}/accounts`, accountPayload);
           } catch (accErr) {
             const msg = accErr.response?.data?.message || accErr.response?.data?.error || accErr.message;
             alert("Failed to create account: " + msg);
           }
         }
       }
-      await axios.post("http://localhost:5000/api/leads", formData);
+      await axios.post(`${API_PREFIX}/leads`, formData);
       setShowForm(false);
       setFormData({
         name: "",
@@ -400,7 +401,7 @@ const Leads = () => {
   const saveEdit = async (row) => {
     try {
       const id = row._id || row.id;
-      await axios.put(`http://localhost:5000/api/leads/${id}`, {
+      await axios.put(`${API_PREFIX}/leads/${id}`, {
         ...editData,
         startDate: editData.startDate ? new Date(editData.startDate) : undefined,
         endDate: editData.endDate ? new Date(editData.endDate) : undefined,

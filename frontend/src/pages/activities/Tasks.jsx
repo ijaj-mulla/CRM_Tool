@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { API_PREFIX } from "@/config/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import ResizableTable from "@/components/table/ResizableTable";
 import { Input } from "@/components/ui/input";
@@ -100,8 +101,8 @@ const Tasks = () => {
     const loadRefs = async () => {
       try {
         const [accRes, conRes] = await Promise.all([
-          axios.get("http://localhost:5000/api/accounts"),
-          axios.get("http://localhost:5000/api/contacts"),
+          axios.get(`${API_PREFIX}/accounts`),
+          axios.get(`${API_PREFIX}/contacts`),
         ]);
         setAccountsCache(accRes.data || []);
         setContactsCache(conRes.data || []);
@@ -160,7 +161,7 @@ const Tasks = () => {
 
   const fetchTasks = async () => {
     try {
-      const { data } = await axios.get("http://localhost:5000/api/tasks");
+      const { data } = await axios.get(`${API_PREFIX}/tasks`);
       setTasks(data);
     } catch (err) {
       console.error("Error fetching tasks:", err.response?.data || err.message);
@@ -189,7 +190,7 @@ const Tasks = () => {
       if (!payload.subject) { alert("Subject is required"); return; }
       if (!payload.category) { alert("Category is required"); return; }
 
-      await axios.post("http://localhost:5000/api/tasks", payload);
+      await axios.post(`${API_PREFIX}/tasks`, payload);
       setShowForm(false);
       setFormData({ ...DEFAULTS });
       fetchTasks();

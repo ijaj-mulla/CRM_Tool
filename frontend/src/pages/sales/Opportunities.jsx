@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { API_PREFIX } from "@/config/api";
 import { FormCard } from "@/components/forms/FormCard";
 import { FormSection } from "@/components/forms/FormSection";
 import { Input } from "@/components/ui/input";
@@ -102,7 +103,7 @@ const Opportunities = () => {
 
   const fetchOpportunities = async () => {
     try {
-      const response = await axios.get("http://localhost:5000/api/opportunity");
+      const response = await axios.get(`${API_PREFIX}/opportunity`);
       setOpportunities(response.data);
     } catch (error) {
       console.error("Error fetching opportunities:", error.response?.data || error.message);
@@ -138,7 +139,7 @@ const Opportunities = () => {
         }
       }
 
-      await axios.post("http://localhost:5000/api/opportunity", payload);
+      await axios.post(`${API_PREFIX}/opportunity`, payload);
       setShowForm(false);
       setFormData({
         name: "",
@@ -454,7 +455,7 @@ const Opportunities = () => {
   const saveEdit = async (row) => {
     try {
       const id = row._id || row.id;
-      await axios.put(`http://localhost:5000/api/opportunity/${id}`, {
+      await axios.put(`${API_PREFIX}/opportunity/${id}`, {
         ...editData,
         startDate: editData.startDate ? new Date(editData.startDate) : undefined,
         closeDate: editData.closeDate ? new Date(editData.closeDate) : undefined,
@@ -510,7 +511,7 @@ const Opportunities = () => {
     const t = setTimeout(async () => {
       if (!contactQuery) { setContactResults([]); return; }
       try {
-        const res = await axios.get(`http://localhost:5000/api/opportunity/search/contact?q=${encodeURIComponent(contactQuery)}`);
+        const res = await axios.get(`${API_PREFIX}/opportunity/search/contact?q=${encodeURIComponent(contactQuery)}`);
         setContactResults(res.data || []);
       } catch {}
     }, 300);
@@ -521,7 +522,7 @@ const Opportunities = () => {
     const t = setTimeout(async () => {
       if (!accountQuery) { setAccountResults([]); return; }
       try {
-        const res = await axios.get(`http://localhost:5000/api/opportunity/search/account?q=${encodeURIComponent(accountQuery)}`);
+        const res = await axios.get(`${API_PREFIX}/opportunity/search/account?q=${encodeURIComponent(accountQuery)}`);
         setAccountResults(res.data || []);
       } catch {}
     }, 300);

@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import axios from 'axios';
-
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5000';
+import { API_PREFIX } from '@/config/api';
 
 const DEMO_EMAILS = [
   {
@@ -52,7 +51,7 @@ const EmailsPage = () => {
   // Fetch emails from backend
   const fetchEmails = async () => {
     try {
-      const response = await axios.get(`${API_BASE}/api/emails`);
+      const response = await axios.get(`${API_PREFIX}/emails`);
       setEmails(response.data);
     } catch (error) {
       console.error('Error fetching emails:', error);
@@ -65,7 +64,7 @@ const EmailsPage = () => {
     setLoading(true);
     setSyncStatus('');
     try {
-      const response = await axios.post(`${API_BASE}/api/emails/sync`);
+      const response = await axios.post(`${API_PREFIX}/emails/sync`);
       setSyncStatus(`${response.data.newEmailsCount} new emails synced`);
       fetchEmails(); // Refresh the email list
     } catch (error) {

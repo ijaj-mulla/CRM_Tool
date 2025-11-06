@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { API_PREFIX } from "@/config/api";
 import { CRMToolbar } from "@/components/layout/CRMToolbar";
 import { FormCard } from "@/components/forms/FormCard";
 import { FormSection } from "@/components/forms/FormSection";
@@ -90,7 +91,7 @@ const Products = () => {
 
   const fetchProducts = async () => {
     try {
-      const response = await axios.get("http://localhost:5000/api/products");
+      const response = await axios.get(`${API_PREFIX}/products`);
       setProducts(response.data);
     } catch (error) {
       console.error("Error fetching products:", error);
@@ -141,9 +142,9 @@ const Products = () => {
 
     try {
       if (editingId) {
-        await axios.put(`http://localhost:5000/api/products/${editingId}`, formData);
+        await axios.put(`${API_PREFIX}/products/${editingId}`, formData);
       } else {
-        await axios.post("http://localhost:5000/api/products", formData);
+        await axios.post(`${API_PREFIX}/products`, formData);
       }
       setShowForm(false);
       setEditingId(null);
@@ -174,7 +175,7 @@ const Products = () => {
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this product?")) {
       try {
-        await axios.delete(`http://localhost:5000/api/products/${id}`);
+        await axios.delete(`${API_PREFIX}/products/${id}`);
         fetchProducts();
       } catch (error) {
         console.error("Error deleting product:", error);

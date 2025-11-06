@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { API_PREFIX, UPLOADS_BASE_URL } from "@/config/api";
 import { FormCard } from "@/components/forms/FormCard";
 import { FormSection } from "@/components/forms/FormSection";
 import { Input } from "@/components/ui/input";
@@ -87,7 +88,7 @@ const SalesQuotes = () => {
 
   const fetchQuotes = async () => {
     try {
-      const response = await axios.get("http://localhost:5000/api/quotes");
+      const response = await axios.get(`${API_PREFIX}/quotes`);
       setQuotes(response.data);
     } catch (error) {
       console.error("Error fetching quotes:", error.response?.data || error.message);
@@ -156,11 +157,11 @@ const SalesQuotes = () => {
           formDataWithFile.append(key, payload[key] ?? '');
         });
         formDataWithFile.append('pdf_file', pdfFile);
-        await axios.post("http://localhost:5000/api/quotes", formDataWithFile, {
+        await axios.post(`${API_PREFIX}/quotes`, formDataWithFile, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
       } else {
-        await axios.post("http://localhost:5000/api/quotes", payload);
+        await axios.post(`${API_PREFIX}/quotes`, payload);
       }
 
       setShowForm(false);
@@ -270,11 +271,11 @@ const SalesQuotes = () => {
         if (editData.product) fd.append('product', editData.product);
         if (editData.amount !== undefined && editData.amount !== "") fd.append('amount', String(Number(editData.amount)));
         fd.append('pdf_file', editPdfFile);
-        await axios.put(`http://localhost:5000/api/quotes/${id}`, fd, {
+        await axios.put(`${API_PREFIX}/quotes/${id}`, fd, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
       } else {
-        await axios.put(`http://localhost:5000/api/quotes/${id}`, {
+        await axios.put(`${API_PREFIX}/quotes/${id}`, {
           document_type: editData.document_type,
           date: editData.date ? new Date(editData.date) : undefined,
           validTo: editData.validTo ? new Date(editData.validTo) : undefined,
@@ -337,7 +338,7 @@ const SalesQuotes = () => {
     const t = setTimeout(async () => {
       if (!accountQuery) { setAccountResults([]); return; }
       try {
-        const res = await axios.get(`http://localhost:5000/api/quotes/search/account?q=${encodeURIComponent(accountQuery)}`);
+        const res = await axios.get(`${API_PREFIX}/quotes/search/account?q=${encodeURIComponent(accountQuery)}`);
         setAccountResults(res.data || []);
       } catch {}
     }, 300);
@@ -348,7 +349,7 @@ const SalesQuotes = () => {
     const t = setTimeout(async () => {
       if (!contactQuery) { setContactResults([]); return; }
       try {
-        const url = `http://localhost:5000/api/quotes/search/contact?q=${encodeURIComponent(contactQuery)}${formData.account ? `&account=${encodeURIComponent(formData.account)}` : ''}`;
+        const url = `${API_PREFIX}/quotes/search/contact?q=${encodeURIComponent(contactQuery)}${formData.account ? `&account=${encodeURIComponent(formData.account)}` : ''}`;
         const res = await axios.get(url);
         setContactResults(res.data || []);
       } catch {}
@@ -360,7 +361,7 @@ const SalesQuotes = () => {
     const t = setTimeout(async () => {
       if (!productQuery) { setProductResults([]); return; }
       try {
-        const res = await axios.get(`http://localhost:5000/api/quotes/search/product?q=${encodeURIComponent(productQuery)}`);
+        const res = await axios.get(`${API_PREFIX}/quotes/search/product?q=${encodeURIComponent(productQuery)}`);
         setProductResults(res.data || []);
       } catch {}
     }, 300);
@@ -372,7 +373,7 @@ const SalesQuotes = () => {
     const t = setTimeout(async () => {
       if (!productPickerOpen || !inlineProductQuery) { setInlineProductResults([]); return; }
       try {
-        const res = await axios.get(`http://localhost:5000/api/quotes/search/product?q=${encodeURIComponent(inlineProductQuery)}`);
+        const res = await axios.get(`${API_PREFIX}/quotes/search/product?q=${encodeURIComponent(inlineProductQuery)}`);
         setInlineProductResults(res.data || []);
       } catch {}
     }, 300);
@@ -633,7 +634,7 @@ const SalesQuotes = () => {
                             <span className="text-xs text-muted-foreground truncate max-w-[140px]">{editPdfFileName}</span>
                           ) : (
                             row.uploaded_pdf ? (
-                              <a href={`http://localhost:5000/uploads/quotes_pdfs/${row.uploaded_pdf}`} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-1 text-primary hover:underline">
+                              <a href={`${UPLOADS_BASE_URL}/quotes_pdfs/${row.uploaded_pdf}`} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-1 text-primary hover:underline">
                                 <Download className="h-4 w-4" />
                                 <span className="text-sm">Current</span>
                               </a>
@@ -644,7 +645,7 @@ const SalesQuotes = () => {
                         </div>
                       ) : (
                         row.uploaded_pdf ? (
-                          <a href={`http://localhost:5000/uploads/quotes_pdfs/${row.uploaded_pdf}`} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-1 text-primary hover:underline">
+                          <a href={`${UPLOADS_BASE_URL}/quotes_pdfs/${row.uploaded_pdf}`} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-1 text-primary hover:underline">
                             <Download className="h-4 w-4" />
                             <span className="text-sm">Quotation</span>
                           </a>

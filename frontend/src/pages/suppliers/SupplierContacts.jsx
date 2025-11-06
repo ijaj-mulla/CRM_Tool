@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { API_PREFIX } from "@/config/api";
 import { CRMToolbar } from "@/components/layout/CRMToolbar";
 import { FormCard } from "@/components/forms/FormCard";
 import { FormSection } from "@/components/forms/FormSection";
@@ -95,7 +96,7 @@ const SupplierContacts = () => {
 
   const fetchContacts = async () => {
     try {
-      const response = await axios.get("http://localhost:5000/api/supplier-contacts");
+      const response = await axios.get(`${API_PREFIX}/supplier-contacts`);
       setContacts(response.data);
     } catch (error) {
       console.error("Error fetching supplier contacts:", error);
@@ -104,7 +105,7 @@ const SupplierContacts = () => {
 
   const fetchSuppliers = async () => {
     try {
-      const response = await axios.get("http://localhost:5000/api/suppliers");
+      const response = await axios.get(`${API_PREFIX}/suppliers`);
       setSuppliers(response.data);
     } catch (error) {
       console.error("Error fetching suppliers:", error);
@@ -154,9 +155,9 @@ const SupplierContacts = () => {
 
     try {
       if (editingId) {
-        await axios.put(`http://localhost:5000/api/supplier-contacts/${editingId}`, formData);
+        await axios.put(`${API_PREFIX}/supplier-contacts/${editingId}`, formData);
       } else {
-        await axios.post("http://localhost:5000/api/supplier-contacts", formData);
+        await axios.post(`${API_PREFIX}/supplier-contacts`, formData);
       }
       setShowForm(false);
       setEditingId(null);
@@ -182,7 +183,7 @@ const SupplierContacts = () => {
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this supplier contact?")) {
       try {
-        await axios.delete(`http://localhost:5000/api/supplier-contacts/${id}`);
+        await axios.delete(`${API_PREFIX}/supplier-contacts/${id}`);
         fetchContacts();
       } catch (error) {
         console.error("Error deleting supplier contact:", error);

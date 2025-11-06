@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { API_PREFIX } from "@/config/api";
 import { FormCard } from "@/components/forms/FormCard";
 import { FormSection } from "@/components/forms/FormSection";
 import { Input } from "@/components/ui/input";
@@ -110,7 +111,7 @@ const Contacts = () => {
 
   const fetchContacts = async () => {
     try {
-      const response = await axios.get("http://localhost:5000/api/contacts");
+      const response = await axios.get(`${API_PREFIX}/contacts`);
       setContacts(response.data);
     } catch (error) {
       console.error("Error fetching contacts:", error.response?.data || error.message);
@@ -119,7 +120,7 @@ const Contacts = () => {
 
   const searchAccounts = async (query) => {
     try {
-      const response = await axios.get(`http://localhost:5000/api/contacts/search-accounts?q=${query}`);
+      const response = await axios.get(`${API_PREFIX}/contacts/search-accounts?q=${query}`);
       setAccountSearchResults(response.data);
       setShowAccountDropdown(true);
     } catch (error) {
@@ -165,7 +166,7 @@ const Contacts = () => {
 
     try {
       const payload = { ...formData };
-      await axios.post("http://localhost:5000/api/contacts", payload);
+      await axios.post(`${API_PREFIX}/contacts`, payload);
       setShowForm(false);
       setFormData({
         mainContact: "",
@@ -288,7 +289,7 @@ const Contacts = () => {
       const payload = Object.fromEntries(
         Object.entries(editData).filter(([_, v]) => v !== "" && v !== null && v !== undefined)
       );
-      await axios.put(`http://localhost:5000/api/contacts/${id}`, payload);
+      await axios.put(`${API_PREFIX}/contacts/${id}`, payload);
       setEditingId(null);
       setEditData({});
       fetchContacts();

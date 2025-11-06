@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { API_PREFIX } from "@/config/api";
 import { CRMToolbar } from "@/components/layout/CRMToolbar";
 import { FormCard } from "@/components/forms/FormCard";
 import { FormSection } from "@/components/forms/FormSection";
@@ -99,7 +100,7 @@ const Competitors = () => {
 
   const fetchCompetitors = async () => {
     try {
-      const response = await axios.get("http://localhost:5000/api/competitors");
+      const response = await axios.get(`${API_PREFIX}/competitors`);
       setCompetitors(response.data);
     } catch (error) {
       console.error("Error fetching competitors:", error);
@@ -153,9 +154,9 @@ const Competitors = () => {
 
     try {
       if (editingId) {
-        await axios.put(`http://localhost:5000/api/competitors/${editingId}`, formData);
+        await axios.put(`${API_PREFIX}/competitors/${editingId}`, formData);
       } else {
-        await axios.post("http://localhost:5000/api/competitors", formData);
+        await axios.post(`${API_PREFIX}/competitors`, formData);
       }
       setShowForm(false);
       setEditingId(null);
@@ -184,7 +185,7 @@ const Competitors = () => {
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this competitor?")) {
       try {
-        await axios.delete(`http://localhost:5000/api/competitors/${id}`);
+        await axios.delete(`${API_PREFIX}/competitors/${id}`);
         fetchCompetitors();
       } catch (error) {
         console.error("Error deleting competitor:", error);

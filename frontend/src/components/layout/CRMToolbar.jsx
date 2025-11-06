@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import axios from "axios";
 import { toast } from "@/components/ui/use-toast";
+import { API_PREFIX } from "@/config/api";
 
 const defaultActions = [ {
   icon: ArrowUpDown,
@@ -71,15 +72,15 @@ export const CRMToolbar = ({
     const t = (title || "").toLowerCase();
     if (t.includes("accounts")) {
       // Optionally add query params
-      const base = "http://localhost:5000/api/accounts/import-excel";
+      const base = `${API_PREFIX}/accounts/import-excel`;
       if (opts && opts.query) return `${base}?${new URLSearchParams(opts.query).toString()}`;
       return base;
     }
-    if (t.includes("contacts")) return "http://localhost:5000/api/contacts/import-excel";
-    if (t.includes("leads")) return "http://localhost:5000/api/leads/import-excel";
-    if (t.includes("products")) return "http://localhost:5000/api/products/import-excel";
+    if (t.includes("contacts")) return `${API_PREFIX}/contacts/import-excel`;
+    if (t.includes("leads")) return `${API_PREFIX}/leads/import-excel`;
+    if (t.includes("products")) return `${API_PREFIX}/products/import-excel`;
     if (t.includes("suppliers")) {
-      const base = "http://localhost:5000/api/suppliers/import-excel";
+      const base = `${API_PREFIX}/suppliers/import-excel`;
       if (opts && opts.query) return `${base}?${new URLSearchParams(opts.query).toString()}`;
       return base;
     }
