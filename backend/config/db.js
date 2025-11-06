@@ -1,12 +1,16 @@
 // backend/config/db.js
 const mongoose = require("mongoose");
+require("dotenv").config(); // Load environment variables
 
 const connectDB = async () => {
   try {
-    // Use Atlas connection string directly (no .env)
-    const uri = "mongodb+srv://ijajmulla:Eajaj09@crmcluster.rgvkk3m.mongodb.net/CRM_Tool?retryWrites=true&w=majority";
+    const uri = process.env.MONGO_URI;
+    if (!uri) {
+      throw new Error("MongoDB connection URI not found in environment variables");
+    }
+
     await mongoose.connect(uri);
-    console.log("MongoDB Connected Successfully TO ATLAS!");
+    console.log("MongoDB Connected Successfully to Atlas!");
   } catch (error) {
     console.error("MongoDB Connection Failed:", error.message);
     process.exit(1);
