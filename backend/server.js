@@ -27,7 +27,7 @@ const app = express();
 
 // Enable CORS
 app.use(cors({
-  origin: ['http://localhost:8080', 'http://localhost:5173', 'http://localhost:3000'],
+  origin: ['http://localhost:8080', 'http://localhost:5173', 'http://localhost:3000', 'https://crm-tool-beta.vercel.app'],
   credentials: true,
 }));
 
